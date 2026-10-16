@@ -1,0 +1,30 @@
+# Environments and caches
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.orbitx_cache/
+*.egg-info/
+build/
+dist/
+
+# Secrets and local settings
+.env
+.env.*
+!.env.example
+.streamlit/secrets.toml
+
+# Local scratch and logs (the missions create scratch_*.py files)
+scratch_*.py
+*.log
+*.tmp
+
+# Editor and OS state
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
