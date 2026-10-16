@@ -11,6 +11,13 @@ from frontend.data import request_refresh
 
 CUSTOM_LOCATION = "Custom location"
 ZONE_CHOICES = {"UTC and IST": ("UTC", "IST"), "UTC only": ("UTC",), "IST only": ("IST",)}
+REFRESH_CHOICES = {
+    "10 seconds (Recommended)": 10,
+    "5 seconds (Fast)": 5,
+    "30 seconds": 30,
+    "60 seconds": 60,
+    "Paused (Manual only)": 0,
+}
 
 
 @dataclass(frozen=True)
@@ -22,6 +29,7 @@ class Controls:
     search_hours: int
     min_elevation: int
     zone_label: str
+    refresh_seconds: int = 10
 
     @property
     def zones(self) -> tuple[str, ...]:
@@ -77,6 +85,16 @@ def render_sidebar() -> Controls:
         step_s = st.select_slider("Time step (seconds)", list(config.TRACK_STEP_OPTIONS_S),
                                   value=config.DEFAULT_TRACK_STEP_S)
 
+        st.subheader("Auto-refresh")
+        refresh_label = st.selectbox(
+            "ISS position update interval",
+            list(REFRESH_CHOICES),
+            index=0,
+            key="refresh_choice",
+            help="Recalculates current ISS position, altitude, speed, map marker, and telemetry at this interval. Uses latest available orbital elements without redundant downloads.",
+        )
+        refresh_seconds = REFRESH_CHOICES[refresh_label]
+
         st.subheader("Observation passes")
         search_hours = st.slider("Search window (hours)", config.MIN_PASS_SEARCH_HOURS,
                                  config.MAX_PASS_SEARCH_HOURS, config.DEFAULT_SEARCH_HOURS)
@@ -84,4 +102,4 @@ def render_sidebar() -> Controls:
                                   int(config.DEFAULT_MIN_ELEVATION_DEG), step=5,
                                   help="How high above the horizon the ISS must climb to count.")
         zone_label = st.radio("Show pass times in", list(ZONE_CHOICES))
-    return Controls(track_minutes, step_s, search_hours, min_elevation, zone_label)
+    return Controls(track_minutes, step_s, search_hours, min_elevation, zone_label, refresh_seconds)

@@ -49,23 +49,7 @@ age_days = tle_service.tle_age_days(tle, now)
 freshness = tle_service.classify_freshness(tle, now)
 components.render_status(data, tle, age_days, freshness)
 
-# ------------------------------------------------------------------------ calculations
-start = now.replace(second=0, microsecond=0)  # whole minutes keep cache keys stable
-try:
-    satellite = build_satellite(tle)
-    position = compute_position(satellite, now)
-    track = cached_track(tle.name, tle.line1, tle.line2, start,
-                         controls.track_minutes, controls.step_s)
-except (PredictionError, ValidationError) as exc:
-    st.error(f"Could not calculate the ISS position: {exc}")
-    st.stop()
-
-illustrative = freshness is Freshness.EXPIRED
-components.render_telemetry(position, illustrative)
-distance_note = epoch_distance_warning(tle, start + timedelta(minutes=controls.track_minutes))
-if distance_note:
-    st.warning(distance_note)
-
+# ------------------------------------------------------------------------ observer
 try:
     observer = observer_from_text(
         "Custom location" if st.session_state["city"] == CUSTOM_LOCATION
@@ -76,15 +60,41 @@ except ValidationError as exc:
     observer = None
     st.sidebar.error(f"Observer location: {exc}")
 
-# ---------------------------------------------------------------------------------- tabs
-tab_map, tab_charts, tab_passes, tab_missions = st.tabs(tabs.TAB_LABELS)
-with tab_map:
-    tabs.render_map_tab(position, track, observer, controls, illustrative)
-with tab_charts:
-    tabs.render_charts_tab(track)
-with tab_passes:
-    tabs.render_passes_tab(tle, observer, start, controls)
-with tab_missions:
-    tabs.render_missions_tab()
+# ------------------------------------------------------------------------ live dashboard
+run_every = controls.refresh_seconds if controls.refresh_seconds > 0 else None
+
+
+@st.fragment(run_every=run_every)
+def render_live_dashboard() -> None:
+    current_time = utcnow()
+    start = current_time.replace(second=0, microsecond=0)  # whole minutes keep cache keys stable
+    try:
+        satellite = build_satellite(tle)
+        position = compute_position(satellite, current_time)
+        track = cached_track(tle.name, tle.line1, tle.line2, start,
+                             controls.track_minutes, controls.step_s)
+    except (PredictionError, ValidationError) as exc:
+        st.error(f"Could not calculate the ISS position: {exc}")
+        return
+
+    illustrative = freshness is Freshness.EXPIRED
+    components.render_telemetry(position, illustrative)
+    distance_note = epoch_distance_warning(tle, start + timedelta(minutes=controls.track_minutes))
+    if distance_note:
+        st.warning(distance_note)
+
+    # ---------------------------------------------------------------------------------- tabs
+    tab_map, tab_charts, tab_passes, tab_missions = st.tabs(tabs.TAB_LABELS)
+    with tab_map:
+        tabs.render_map_tab(position, track, observer, controls, illustrative)
+    with tab_charts:
+        tabs.render_charts_tab(track)
+    with tab_passes:
+        tabs.render_passes_tab(tle, observer, start, controls)
+    with tab_missions:
+        tabs.render_missions_tab()
+
+
+render_live_dashboard()
 
 components.render_footer()

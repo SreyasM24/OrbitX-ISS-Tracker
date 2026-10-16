@@ -8,6 +8,11 @@ textColor = "#d6e2f5"
 [browser]
 gatherUsageStats = false
 
+[client]
+# "viewer" hides developer-only toolbar items (Deploy, Rerun, Clear Cache).
+# This is the official Streamlit setting — not a DOM hack.
+toolbarMode = "viewer"
+
 [server]
 headless = true
 enableStaticServing = true

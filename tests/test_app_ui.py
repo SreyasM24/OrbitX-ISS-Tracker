@@ -203,3 +203,23 @@ def test_map_tab_offers_a_plot_that_needs_no_internet():
     at = run()
     assert not at.exception
     assert any("without internet" in e.label for e in at.expander)
+
+
+def test_auto_refresh_control_is_present_and_configurable():
+    at = run()
+    assert not at.exception
+    refresh_select = at.selectbox(key="refresh_choice")
+    assert refresh_select.value == "10 seconds (Recommended)"
+    assert "Paused (Manual only)" in refresh_select.options
+    assert "5 seconds (Fast)" in refresh_select.options
+    refresh_select.select("Paused (Manual only)").run()
+    assert not at.exception
+    assert at.selectbox(key="refresh_choice").value == "Paused (Manual only)"
+
+
+def test_toolbar_mode_is_configured_to_viewer():
+    config_path = Path(__file__).resolve().parents[1] / ".streamlit" / "config.toml"
+    assert config_path.is_file()
+    content = config_path.read_text(encoding="utf-8")
+    assert 'toolbarMode = "viewer"' in content
+
