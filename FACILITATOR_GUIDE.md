@@ -115,7 +115,7 @@ Be accurate about what happened: say which missions most pairs completed and whi
 
 Each was applied to a scratch copy of the project and verified with the mission's Verify command before this guide was written.
 
-**Mission 1: `src/orbitx/formatting.py`** (add), `app.py` (import `format_altitude`, use in the Altitude metric):
+**Mission 1: `src/orbitx/formatting.py`** (add), `src/orbitx/ui/components.py` (import `format_altitude`, use in the Altitude metric in `render_telemetry()`):
 
 ```python
 def format_altitude(altitude_km: float) -> str:
@@ -148,7 +148,7 @@ folium.Circle(
 
 **Mission 3: `src/orbitx/charts.py`**: add `("speed_km_s", "Speed (km/s)", None),` to `specs`; `rows=3` becomes `rows=4`; the x-axis title line uses `row=4`; `height=620` becomes `height=780`.
 
-**Mission 4: `src/orbitx/pass_predictor.py`** (add), plus the `app.py` import and display:
+**Mission 4: `src/orbitx/pass_predictor.py`** (add), plus the import and display in `src/orbitx/ui/tabs.py` (`render_passes_tab()`; add `best_pass` to the `orbitx.pass_predictor` import and `format_utc` to the `orbitx.formatting` import there):
 
 ```python
 def best_pass(passes: list[SatellitePass]) -> SatellitePass | None:
@@ -164,7 +164,7 @@ if best is not None:
                f"at {format_utc(best.culmination_time_utc)}")
 ```
 
-(place before `st.dataframe(passes_to_frame(...))` in the Passes tab.)
+(place before `st.dataframe(passes_to_frame(...))` in `render_passes_tab()`.)
 
 **Final challenge: `src/orbitx/config.py`**: add a line such as `"Cape Town, South Africa": (-33.9249, 18.4241),` to `EXAMPLE_CITIES`. Any real city works; check the sign of latitude and longitude.
 

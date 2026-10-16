@@ -25,7 +25,7 @@ A pass that peaks at 60Â° is a long, bright overhead pass. One that peaks at 12Â
 | --- | --- |
 | `src/orbitx/pass_predictor.py` | `find_passes()`, `passes_to_frame()`, `assemble_passes()` (you will edit this one) |
 | `src/orbitx/models.py` | The `SatellitePass` dataclass |
-| `app.py` | The **Passes** tab |
+| `src/orbitx/ui/tabs.py` | The **Passes** tab (`render_passes_tab()`) |
 
 ## Instructions
 
@@ -38,7 +38,7 @@ A pass that peaks at 60Â° is a long, bright overhead pass. One that peaks at 12Â
 
 ## Your task
 
-Add a helper `best_pass(passes)` to `src/orbitx/pass_predictor.py` that returns the **complete pass with the highest maximum elevation**, or `None` if there is no complete pass. Then use it in `app.py` (in the **Passes** tab, just above the table) to show a green summary line such as:
+Add a helper `best_pass(passes)` to `src/orbitx/pass_predictor.py` that returns the **complete pass with the highest maximum elevation**, or `None` if there is no complete pass. Then use it in `src/orbitx/ui/tabs.py` (in `render_passes_tab()`, just above the table) to show a green summary line such as:
 
 `Best pass in this window: peaks at 62Â° at 2026-10-21 13:08:11 UTC`
 
@@ -71,7 +71,7 @@ It must print `None`. Then, in the browser, compare the green line with the tabl
 - **The green line shows a time that is not in the table**: you may be showing the *rise* instead of the *peak* time, or the wrong time zone. Check the column label.
 - **"Fix the observer location"**: latitude or longitude text is invalid. Press **Reset to default location**.
 - **No passes at all**: widen the window or lower the minimum elevation.
-- Restore: `git checkout -- src/orbitx/pass_predictor.py app.py`.
+- Restore: `git checkout -- src/orbitx/pass_predictor.py src/orbitx/ui/tabs.py`.
 
 ## Optional extension
 

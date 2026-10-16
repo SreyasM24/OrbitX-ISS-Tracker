@@ -26,7 +26,7 @@ Inside that circle (the **footprint**), the ISS is above the horizon, at least g
 | --- | --- |
 | `src/orbitx/map_view.py` | `build_map()` builds the Folium map (you will edit this one) |
 | `src/orbitx/orbital_engine.py` | `predict_track()` and `split_track_segments()` |
-| `app.py` | Calls `build_map()` in the **Map** tab |
+| `src/orbitx/ui/tabs.py` | Calls `build_map()` in the **Map** tab (`render_map_tab()`) |
 
 ## Instructions
 
