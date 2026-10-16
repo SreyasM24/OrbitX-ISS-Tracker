@@ -1,0 +1,11 @@
+# Runtime dependencies for OrbitX (no API keys, no paid services).
+# Versions are lower bounds. The release was verified with skyfield 1.55, streamlit 1.66 and
+# Python 3.13 on Windows 11 (see README, "Requirements").
+skyfield>=1.49
+numpy>=1.24
+pandas>=2.0
+plotly>=5.18
+folium>=0.15
+streamlit>=1.50
+streamlit-folium>=0.20
+requests>=2.31

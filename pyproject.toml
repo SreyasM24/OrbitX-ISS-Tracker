@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "orbitx"
+version = "1.0.0"
+description = "Educational ISS tracker (Skyfield + Streamlit) for the OrbitX workshop"
+requires-python = ">=3.10"
+dependencies = [
+    "skyfield>=1.49",
+    "numpy>=1.24",
+    "pandas>=2.0",
+    "plotly>=5.18",
+    "folium>=0.15",
+    "streamlit>=1.50",
+    "streamlit-folium>=0.20",
+    "requests>=2.31",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
