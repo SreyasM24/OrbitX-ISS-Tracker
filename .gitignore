@@ -28,3 +28,9 @@ scratch_*.py
 .idea/
 .DS_Store
 Thumbs.db
+
+# Local background video (licence unknown, never committed) and Streamlit static copy
+assets/*.mp4
+assets/*.webm
+*.mp4
+static/

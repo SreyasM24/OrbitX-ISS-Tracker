@@ -15,6 +15,14 @@ DATA_DIR = PROJECT_ROOT / "data"
 MISSIONS_DIR = PROJECT_ROOT / "missions"
 SAMPLE_TLE_PATH = DATA_DIR / "sample_iss.tle"
 
+# Optional cinematic background video (not shipped in the repository: see assets/README.md).
+# Streamlit can only serve files from ``static/``, so the video is copied there at start-up.
+ASSETS_DIR = PROJECT_ROOT / "assets"
+STATIC_DIR = PROJECT_ROOT / "static"
+BACKGROUND_VIDEO_PATH = Path(
+    os.environ.get("ORBITX_BACKGROUND_VIDEO", str(ASSETS_DIR / "iss-background.mp4"))
+)
+
 ISS_NORAD_ID = 25544
 ISS_NAME_HINTS = ("ISS", "ZARYA")
 
