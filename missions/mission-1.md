@@ -21,11 +21,11 @@ The ISS does not broadcast its position to this app. Instead we download a **TLE
 
 | File | What it does |
 | --- | --- |
-| `app.py` | Starts the dashboard and connects the pieces |
-| `src/orbitx/ui/components.py` | Draws the header, status panel and the four metric cards (you will edit this one too) |
-| `src/orbitx/tle_service.py` | Downloads, validates and caches TLEs; `get_orbital_data()`, `tle_age_days()` |
-| `src/orbitx/orbital_engine.py` | `build_satellite()` and `compute_position()` |
-| `src/orbitx/formatting.py` | Small text-formatting helpers (you will edit this one) |
+| `frontend/app.py` | Starts the dashboard and connects the pieces |
+| `frontend/components.py` | Draws the header, status panel and the four metric cards (you will edit this one too) |
+| `backend/tle_service.py` | Downloads, validates and caches TLEs; `get_orbital_data()`, `tle_age_days()` |
+| `backend/orbital_engine.py` | `build_satellite()` and `compute_position()` |
+| `backend/formatting.py` | Small text-formatting helpers (you will edit this one) |
 
 ## Instructions
 
@@ -35,8 +35,8 @@ The ISS does not broadcast its position to this app. Instead we download a **TLE
 4. In the repository folder, create `scratch_mission1.py` (it is git-ignored) with this content, and run it with `python scratch_mission1.py` in your activated terminal:
 
 ```python
-from orbitx import orbital_engine, tle_service
-from orbitx.validation import utcnow
+from backend import orbital_engine, tle_service
+from backend.validation import utcnow
 
 data = tle_service.get_orbital_data()
 now = utcnow()
@@ -54,7 +54,7 @@ print("alt km :", round(position.altitude_km), " speed km/s:", round(position.sp
 
 ## Your task
 
-Space-news headlines often quote miles. Add a function `format_altitude(km)` to `src/orbitx/formatting.py` that returns text like `420 km (261 mi)` (1 km = 0.621371 mi), then use it for the **Altitude** metric in `src/orbitx/ui/components.py` (look for `c3.metric("Altitude"` in `render_telemetry()`).
+Space-news headlines often quote miles. Add a function `format_altitude(km)` to `backend/formatting.py` that returns text like `420 km (261 mi)` (1 km = 0.621371 mi), then use it for the **Altitude** metric in `frontend/components.py` (look for `c3.metric("Altitude"` in `render_telemetry()`).
 
 Keep the change small: one new function and one edited line. Do not touch the orbital calculations.
 
@@ -62,7 +62,7 @@ Keep the change small: one new function and one edited line. Do not touch the or
 
 Copy this into your AI coding assistant, then **read the answer before applying it**:
 
-> I'm working in a Python project called OrbitX. Open `src/orbitx/formatting.py` and look at how `format_age` and `format_latitude` are written. Add a new function `format_altitude(altitude_km: float) -> str` in the same style that returns a string like `"420 km (261 mi)"`, using 1 km = 0.621371 miles, rounded to whole numbers. Then show me the single line in `src/orbitx/ui/components.py` (the `c3.metric("Altitude", ...)` call) that should use it. Change nothing else. Explain what each line does.
+> I'm working in a Python project called OrbitX. Open `backend/formatting.py` and look at how `format_age` and `format_latitude` are written. Add a new function `format_altitude(altitude_km: float) -> str` in the same style that returns a string like `"420 km (261 mi)"`, using 1 km = 0.621371 miles, rounded to whole numbers. Then show me the single line in `frontend/components.py` (the `c3.metric("Altitude", ...)` call) that should use it. Change nothing else. Explain what each line does.
 
 Check that the suggestion matches the existing style and that it only edits those two places.
 
@@ -76,18 +76,18 @@ Check that the suggestion matches the existing style and that it only edits thos
 Run in the terminal:
 
 ```powershell
-python -c "from orbitx.formatting import format_altitude; print(format_altitude(420))"
+python -c "from backend.formatting import format_altitude; print(format_altitude(420))"
 ```
 
 It must print `420 km (261 mi)`. Then refresh the browser and check the dashboard. If you can, ask yourself: *is the age the app reports consistent with the epoch it shows?*
 
 ## Common errors
 
-- **`ModuleNotFoundError: No module named 'orbitx'`**: your terminal is not using the project environment. Run `.\scripts\setup.ps1` again, or `pip install -e .` in the activated venv.
-- **`NameError: format_altitude`** in the browser: add it to `formatting.py` *and* import it in `src/orbitx/ui/components.py` (the `from orbitx.formatting import (...)` block).
+- **`ModuleNotFoundError: No module named 'backend'`**: your terminal is not using the project environment. Run `.\scripts\setup.ps1` again, or `pip install -e .` in the activated venv.
+- **`NameError: format_altitude`** in the browser: add it to `formatting.py` *and* import it in `frontend/components.py` (the `from backend.formatting import (...)` block).
 - **The page does not change**: save both files, then click **Rerun** in the browser's top-right menu.
 - **Data source says SAMPLE**: you are offline or the download failed. This is expected and honest. Continue; the maths is the same, only the data is older.
-- Something broke badly? `git checkout -- src/orbitx/formatting.py src/orbitx/ui/components.py` restores the originals.
+- Something broke badly? `git checkout -- backend/formatting.py frontend/components.py` restores the originals.
 
 ## Optional extension
 

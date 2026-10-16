@@ -5,10 +5,10 @@ from datetime import datetime, timedelta, timezone
 import pandas as pd
 import pytest
 
-from orbitx import config
-from orbitx.formatting import compass_point
-from orbitx.models import SatellitePass
-from orbitx.pass_predictor import (
+from backend import config
+from backend.formatting import compass_point
+from backend.models import SatellitePass
+from backend.pass_predictor import (
     CULMINATE,
     RISE,
     SET,

@@ -13,7 +13,7 @@ cd OrbitX-ISS-Tracker
 ```
 
 On macOS/Linux (untested by the authors): `python3 -m venv .venv`, activate it,
-`pip install -r requirements-dev.txt`, `pip install -e .`, `streamlit run app.py`.
+`pip install -r requirements-dev.txt`, `pip install -e .`, `streamlit run frontend/app.py`.
 
 ## 2. Work on a branch
 
@@ -27,16 +27,16 @@ Never work directly on `main`.
 
 | You are changing... | Put it in | Rule of thumb |
 | --- | --- | --- |
-| Looks, layout, CSS, tabs, sidebar | `src/orbitx/ui/` (`theme.py`, `components.py`, `tabs.py`, `sidebar.py`) | Streamlit lives here, and only here (plus `app.py`). |
-| Orbital maths, passes, ground track | `src/orbitx/orbital_engine.py`, `pass_predictor.py` | No Streamlit imports. Pure functions that are easy to test. |
-| Downloading or caching orbital elements | `src/orbitx/tle_service.py` | The only module that touches the network. |
-| Constants, limits, example cities | `src/orbitx/config.py` | Add a name here instead of a "magic number". |
-| Data classes, validation, formatting | `models.py`, `validation.py`, `formatting.py` | Validate every user input. |
-| Map and charts | `map_view.py`, `charts.py` | Return a Folium/Plotly object; `ui/tabs.py` displays it. |
-| Mission guides | `missions/*.md` + `src/orbitx/missions.py` | See below. |
+| Looks, layout, CSS, tabs, sidebar | `frontend/` (`theme.py`, `components.py`, `tabs.py`, `sidebar.py`, `map_view.py`, `charts.py`) | Streamlit lives here, and only here (plus `frontend/app.py`). |
+| Orbital maths, passes, ground track | `backend/orbital_engine.py`, `backend/pass_predictor.py` | No Streamlit imports. Pure functions that are easy to test. |
+| Downloading or caching orbital elements | `backend/tle_service.py` | The only module that touches the network. |
+| Constants, limits, example cities | `backend/config.py` | Add a name here instead of a "magic number". |
+| Data classes, validation, formatting | `backend/models.py`, `backend/validation.py`, `backend/formatting.py` | Validate every user input. |
+| Map and charts | `frontend/map_view.py`, `frontend/charts.py` | Return a Folium/Plotly object; `frontend/tabs.py` displays it. |
+| Mission guides | `missions/*.md` + `backend/missions.py` | See below. |
 | Tests | `tests/` | One `test_*.py` per topic. |
 
-`app.py` should stay short: it connects the pieces and nothing more. Read
+`frontend/app.py` should stay short: it connects the pieces and nothing more. Read
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before a bigger change.
 
 ## 4. Run the tests
@@ -52,7 +52,7 @@ behaviour, add or update a test for it. If you fix a bug, add a test that fails 
 
 1. Copy the structure of an existing guide in `missions/` (for example `mission-4.md`) into a new
    file. It must contain the required sections, which `tests/test_missions.py` checks.
-2. Register it in `src/orbitx/missions.py`.
+2. Register it in `backend/missions.py`.
 3. Run the tests and open the **Missions** tab to check that it renders.
 
 ## 6. Code quality expectations
@@ -60,7 +60,7 @@ behaviour, add or update a test for it. If you fix a bug, add a test that fails 
 - Match the style of the surrounding code; use type hints and short docstrings that explain *why*.
 - Keep scientific honesty: label predictions as predictions, keep the caveats about TLE age and
   pass visibility, and never present sample data as live.
-- No secrets, no machine-specific paths, no generated files (`.venv/`, `.orbitx_cache/`, `static/`).
+- No secrets, no machine-specific paths, no generated files (`.venv/`, `.orbitx_cache/`, `frontend/static/`).
 - Do not add large dependencies or media. Check licences before adding any image, video or data.
 - Do not hide warnings just to make output tidy; understand them first.
 

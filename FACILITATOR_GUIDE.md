@@ -24,7 +24,7 @@ The coding tasks (one per mission) are valuable but **not** required for the ess
 
 1. Participants run `.\scripts\setup.ps1`, then `.\scripts\run.ps1` once, and tell you if it fails. This moves the internet-heavy install (a few hundred MB) out of the workshop.
 2. Facilitator, on the venue network if possible, runs the app, checks the data-source badge reads LIVE, and runs `python -m pytest` (all tests should pass).
-3. **Refresh the sample data.** `data/sample_iss.tle` was taken on 2026-10-15, so by 21 October it is about 7 days old and the app will show an orange "STALE" warning if it is ever used. Replace its TLE lines with the latest from `https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE`, update the `# Retrieved:` comment lines, then check with `python -c "from orbitx import tle_service as t; print(t.load_sample_tle().epoch_utc)"`.
+3. **Refresh the sample data.** `backend/data/sample_iss.tle` was taken on 2026-10-15, so by 21 October it is about 7 days old and the app will show an orange "STALE" warning if it is ever used. Replace its TLE lines with the latest from `https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE`, update the `# Retrieved:` comment lines, then check with `python -c "from backend import tle_service as t; print(t.load_sample_tle().epoch_utc)"`.
 4. **Avoid 50 simultaneous downloads.** All laptops probably share one public IP, and CelesTrak asks clients not to poll more than every 2 hours. On the facilitator machine run the app once while online, then copy the resulting `.orbitx_cache` folder into every participant's repository folder (USB stick or shared drive). Participants then run `.\scripts\run.ps1 -Offline`; the page honestly says **CACHED**, with its age.
 5. Print or project the schedule and the Wi-Fi details.
 
@@ -115,7 +115,7 @@ Be accurate about what happened: say which missions most pairs completed and whi
 
 Each was applied to a scratch copy of the project and verified with the mission's Verify command before this guide was written.
 
-**Mission 1: `src/orbitx/formatting.py`** (add), `src/orbitx/ui/components.py` (import `format_altitude`, use in the Altitude metric in `render_telemetry()`):
+**Mission 1: `backend/formatting.py`** (add), `frontend/components.py` (import `format_altitude`, use in the Altitude metric in `render_telemetry()`):
 
 ```python
 def format_altitude(altitude_km: float) -> str:
@@ -127,7 +127,7 @@ def format_altitude(altitude_km: float) -> str:
 c3.metric("Altitude", format_altitude(position.altitude_km), help="Height above the WGS84 ellipsoid.")
 ```
 
-**Mission 2: `src/orbitx/map_view.py`** (add `import math`, `EARTH_RADIUS_KM = 6371.0`, then):
+**Mission 2: `frontend/map_view.py`** (add `import math`, `EARTH_RADIUS_KM = 6371.0`, then):
 
 ```python
 def footprint_radius_km(altitude_km: float) -> float:
@@ -146,9 +146,9 @@ folium.Circle(
 ).add_to(fmap)
 ```
 
-**Mission 3: `src/orbitx/charts.py`**: add `("speed_km_s", "Speed (km/s)", None),` to `specs`; `rows=3` becomes `rows=4`; the x-axis title line uses `row=4`; `height=620` becomes `height=780`.
+**Mission 3: `frontend/charts.py`**: add `("speed_km_s", "Speed (km/s)", None),` to `specs`; `rows=3` becomes `rows=4`; the x-axis title line uses `row=4`; `height=620` becomes `height=780`.
 
-**Mission 4: `src/orbitx/pass_predictor.py`** (add), plus the import and display in `src/orbitx/ui/tabs.py` (`render_passes_tab()`; add `best_pass` to the `orbitx.pass_predictor` import and `format_utc` to the `orbitx.formatting` import there):
+**Mission 4: `backend/pass_predictor.py`** (add), plus the import and display in `frontend/tabs.py` (`render_passes_tab()`; add `best_pass` to the `orbitx.pass_predictor` import and `format_utc` to the `orbitx.formatting` import there):
 
 ```python
 def best_pass(passes: list[SatellitePass]) -> SatellitePass | None:
@@ -166,7 +166,7 @@ if best is not None:
 
 (place before `st.dataframe(passes_to_frame(...))` in `render_passes_tab()`.)
 
-**Final challenge: `src/orbitx/config.py`**: add a line such as `"Cape Town, South Africa": (-33.9249, 18.4241),` to `EXAMPLE_CITIES`. Any real city works; check the sign of latitude and longitude.
+**Final challenge: `backend/config.py`**: add a line such as `"Cape Town, South Africa": (-33.9249, 18.4241),` to `EXAMPLE_CITIES`. Any real city works; check the sign of latitude and longitude.
 
 ## 10. Known limitations to mention if asked
 
@@ -182,7 +182,7 @@ Goal: know exactly what the room will see if the Wi-Fi fails.
 
 1. **Seed the cache (online).** On the facilitator laptop run `.\scripts\run.ps1`. The badge should say **LIVE**. This writes `.orbitx_cache\iss_tle.json`. Stop the app with Ctrl+C.
 2. **Rehearse "cache only".** Switch Wi-Fi off (or enable airplane mode), then run `.\scripts\run.ps1 -Offline`. Expect: badge **CACHED** with the download age; metrics, Telemetry, Passes and Missions all work; the CSV download works.
-3. **Rehearse "nothing cached".** Stop the app, rename the `.orbitx_cache` folder to `.orbitx_cache_off`, run `.\scripts\run.ps1 -Offline` again. Expect the red **SAMPLE, NOT live** badge and the sample's age. If the sample is more than 3 days old an orange **STALE** warning also appears: refresh `data/sample_iss.tle` (section 2, step 3). Rename the folder back afterwards.
+3. **Rehearse "nothing cached".** Stop the app, rename the `.orbitx_cache` folder to `.orbitx_cache_off`, run `.\scripts\run.ps1 -Offline` again. Expect the red **SAMPLE, NOT live** badge and the sample's age. If the sample is more than 3 days old an orange **STALE** warning also appears: refresh `backend/data/sample_iss.tle` (section 2, step 3). Rename the folder back afterwards.
 4. **Check the map.** With Wi-Fi off the Map tab area is empty or grey: this is expected. Open **Plain track plot (works without internet)** and confirm the track, the orange ISS dot and the green observer marker draw.
 5. **Prepare the room.** Copy the seeded `.orbitx_cache` to every laptop (section 2, step 4) and tell students: "offline means a cached or sample badge, a plain plot instead of a street map, and the same code to edit."
 6. Switch Wi-Fi back on and confirm a normal **LIVE** start still works.

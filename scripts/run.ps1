@@ -28,8 +28,8 @@ if (-not (Test-Path $VenvPython)) {
     Write-Host "ERROR: .venv was not found. Run  .\scripts\setup.ps1  first." -ForegroundColor Red
     exit 1
 }
-if (-not (Test-Path (Join-Path $Root 'app.py'))) {
-    Write-Host "ERROR: app.py not found in $Root." -ForegroundColor Red
+if (-not (Test-Path (Join-Path $Root 'frontend\app.py'))) {
+    Write-Host "ERROR: frontend\app.py not found in $Root." -ForegroundColor Red
     exit 1
 }
 
@@ -42,7 +42,7 @@ $Url = "http://localhost:$Port"
 Write-Host "Starting OrbitX at $Url  (press Ctrl+C to stop)"
 
 $process = Start-Process -FilePath $VenvPython -WorkingDirectory $Root -NoNewWindow -PassThru `
-    -ArgumentList @('-m', 'streamlit', 'run', 'app.py', '--server.port', "$Port", '--server.headless', 'true')
+    -ArgumentList @('-m', 'streamlit', 'run', 'frontend/app.py', '--server.port', "$Port", '--server.headless', 'true')
 
 if (-not $NoBrowser) {
     for ($i = 0; $i -lt 30 -and -not $process.HasExited; $i++) {

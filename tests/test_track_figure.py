@@ -5,9 +5,9 @@ from datetime import timedelta
 import numpy as np
 import pytest
 
-from orbitx import orbital_engine as engine
-from orbitx.charts import track_figure
-from orbitx.models import Observer
+from backend import orbital_engine as engine
+from frontend.charts import track_figure
+from backend.models import Observer
 
 
 @pytest.fixture(scope="module")

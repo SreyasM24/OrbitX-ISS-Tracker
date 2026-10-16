@@ -8,13 +8,13 @@ from __future__ import annotations
 
 import streamlit as st
 
-from orbitx.formatting import (
+from backend.formatting import (
     format_age,
     format_latitude,
     format_longitude,
     format_utc,
 )
-from orbitx.models import DataSource, Freshness
+from backend.models import DataSource, Freshness
 
 # A generic orbit-ring glyph. It is NOT the club's official logo.
 _ORBIT_ICON = (

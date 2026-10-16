@@ -30,36 +30,40 @@ It needs **no API key and no paid service**. It downloads public orbital element
 
 ## Repository structure
 
+OrbitX is one Python/Streamlit project with two code categories. **`frontend/`** is everything the user sees; **`backend/`** is everything scientific and data-related. The frontend imports the backend, never the other way round, and `backend/` never imports Streamlit.
+
 ```
-app.py                      Streamlit entry point: wires data, calculations and UI together
-src/orbitx/
-  config.py                 Constants, thresholds, example cities
-  models.py                 Typed dataclasses (TleRecord, Observer, SatellitePass, ...)
-  validation.py             Input validation, UTC helpers, TLE checksum
-  tle_service.py            TLE download, parsing, caching, offline fallback (only module using the network)
-  orbital_engine.py         Skyfield propagation, ground track, antimeridian handling
-  pass_predictor.py         Observer passes, pass table
-  map_view.py               Folium map
-  charts.py                 Plotly telemetry charts
-  formatting.py             Display formatting
-  missions.py               Mission registry and required-section contract
-  ui/                       Streamlit presentation only (no orbital maths)
-    theme.py                  Stylesheet (CSS)
-    background.py / .js       Background video layer and seamless-loop script
-    components.py             Header, status panel, telemetry cards, footer
-    sidebar.py                Observer, ground-track and pass controls
-    tabs.py                   Map, Telemetry, Passes and Missions tabs
-    data.py                   st.cache_data wrappers
-missions/                   Five mission guides (Markdown)
-data/sample_iss.tle         Bundled offline sample orbital elements
-assets/                     Optional local background video (not in the repo; see assets/README.md)
-docs/                       ARCHITECTURE.md, TROUBLESHOOTING.md, screenshots
-tests/                      pytest suite (no network needed)
-scripts/setup.ps1           Windows one-time setup
-scripts/run.ps1             Windows launcher
-FACILITATOR_GUIDE.md        For workshop organisers
-CONTRIBUTING.md             How to contribute
+frontend/                    UI: what you see (Streamlit)
+  app.py                       Entry point: wires data, calculations and UI together
+  theme.py                     Stylesheet (CSS)
+  background.py / .js          Background video layer and seamless-loop script
+  components.py                Header, GAAC badge, status panel, telemetry cards, footer
+  sidebar.py                   Observer, ground-track and pass controls
+  tabs.py                      Map, Telemetry, Passes and Missions tabs
+  map_view.py                  Folium map
+  charts.py                    Plotly charts and the offline track plot
+  data.py                      st.cache_data wrappers around backend calls
+  assets/                      Optional local background video (not in the repo; see assets/README.md)
+backend/                     Science and data: no Streamlit
+  config.py                    Constants, thresholds, example cities
+  models.py                    Typed dataclasses (TleRecord, Observer, SatellitePass, ...)
+  validation.py                Input validation, UTC helpers, TLE checksum
+  tle_service.py               TLE download, parsing, caching, offline fallback (only module using the network)
+  orbital_engine.py            Skyfield propagation, ground track, antimeridian handling
+  pass_predictor.py            Observer passes, pass table
+  formatting.py                Display formatting (numbers, coordinates, durations)
+  missions.py                  Mission registry and required-section contract
+  data/sample_iss.tle          Bundled offline sample orbital elements (read-only)
+missions/                    Five mission guides (Markdown)
+tests/                       pytest suite (no network needed)
+scripts/                     setup.ps1 (one-time setup) and run.ps1 (launcher)
+docs/                        ARCHITECTURE.md, TROUBLESHOOTING.md, screenshots
+.streamlit/                  Streamlit theme and server settings
+.orbitx_cache/               Generated at run time (git-ignored): last downloaded orbital elements
+FACILITATOR_GUIDE.md, CONTRIBUTING.md
 ```
+
+Run the app with `.\scripts\run.ps1`, which starts `streamlit run frontend/app.py` from the repository root.
 
 ## Requirements
 
@@ -88,7 +92,7 @@ py -3 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements-dev.txt
 pip install -e .
-streamlit run app.py
+streamlit run frontend/app.py
 ```
 
 ## Setup on macOS / Linux
@@ -100,14 +104,14 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements-dev.txt
 pip install -e .
-streamlit run app.py
+streamlit run frontend/app.py
 ```
 
 ## Background video
 
 OrbitX can play a muted, looping ISS video behind the dashboard. **The video is not included in this repository**: the stock footage used by the maintainers has no confirmed redistribution licence. Without it you see a dark navy gradient and everything else works.
 
-To enable it, put a video you are allowed to use at `assets/iss-background.mp4` (or set `ORBITX_BACKGROUND_VIDEO`) and restart the app. Details and tips: [assets/README.md](assets/README.md). The video keeps playing when you switch tabs or change settings; it is a fixed layer that Streamlit does not re-create on reruns, and the end of the clip is crossfaded into its start.
+To enable it, put a video you are allowed to use at `frontend/assets/iss-background.mp4` (or set `ORBITX_BACKGROUND_VIDEO`) and restart the app. Details and tips: [frontend/assets/README.md](frontend/assets/README.md). The video keeps playing when you switch tabs or change settings; it is a fixed layer that Streamlit does not re-create on reruns, and the end of the clip is crossfaded into its start.
 
 ## Club branding
 
@@ -132,7 +136,7 @@ OrbitX never fails just because the network does:
 1. A recent cached download (`.orbitx_cache/iss_tle.json`, valid for 2 hours) is reused.
 2. Otherwise it downloads from CelesTrak.
 3. If that fails it uses the last cached download, however old.
-4. If there is no cache it uses `data/sample_iss.tle` and labels the data **SAMPLE, NOT live**.
+4. If there is no cache it uses `backend/data/sample_iss.tle` and labels the data **SAMPLE, NOT live**.
 
 To force offline behaviour: `.\scripts\run.ps1 -Offline`, or set `ORBITX_OFFLINE=1`. **The Folium map needs internet twice over:** its street tiles come from OpenStreetMap and its JavaScript libraries from public CDNs. If only the tiles are blocked you see the track on a grey background; with no internet at all the map area stays empty. In that case open **Plain track plot (works without internet)** under the map: it draws the same predicted track with Plotly, which ships inside Streamlit. Telemetry charts, metrics, pass table and missions work fully offline. The very first `setup.ps1` still needs internet to install packages. Other settings are in `.env.example` (they are plain environment variables; no `.env` loader is built in).
 
@@ -164,7 +168,7 @@ cd OrbitX-ISS-Tracker
 git switch -c my-pair-name        # work on your own branch
 # ... edit, run the app, run the tests ...
 git status
-git add src/orbitx/formatting.py app.py     # add the files you changed, not everything
+git add backend/formatting.py frontend/app.py     # add the files you changed, not everything
 git commit -m "Mission 1: show altitude in miles"
 git push -u origin my-pair-name
 ```
@@ -175,14 +179,14 @@ If something breaks, `git diff` shows what changed and `git checkout -- <file>` 
 
 | Problem | Fix |
 | --- | --- |
-| `ModuleNotFoundError: No module named 'orbitx'` | Activate `.venv`, then `pip install -e .`. Check with `python -c "import orbitx"`. |
+| `ModuleNotFoundError: No module named 'backend'` | Activate `.venv`, then `pip install -e .`. Check with `python -c "import backend, frontend"`. |
 | `python` is not recognised / opens the Microsoft Store | Install Python 3.10+ from python.org with "Add python.exe to PATH", open a new terminal, retry. |
 | PowerShell blocks `setup.ps1` | See the execution-policy note above, or use the manual steps. |
 | `pip install` fails or hangs | Check the internet connection or a proxy (`pip install --proxy http://host:port ...`). |
 | Page says **SAMPLE, NOT live** | You are offline, or CelesTrak could not be reached. This is a deliberate, honest fallback. |
 | Port 8501 is busy | `.\scripts\run.ps1 -Port 8502`. |
 | Browser does not open | Open `http://localhost:8501` yourself. |
-| No video background | Expected unless you add `assets/iss-background.mp4` (see [Background video](#background-video)). |
+| No video background | Expected unless you add `frontend/assets/iss-background.mp4` (see [Background video](#background-video)). |
 | Map is grey | Map tiles need internet. The ISS marker and track still draw. |
 | Map area is completely empty | The map's scripts also need internet. Use the **Plain track plot** expander below it. |
 | Edited code, page unchanged | Save the file, then use **Rerun** in the Streamlit menu (or press **R**). |
@@ -199,7 +203,7 @@ If something breaks, `git diff` shows what changed and `git checkout -- <file>` 
 
 ## Data attribution and licence
 
-- Orbital elements: [CelesTrak](https://celestrak.org/) general-perturbations data for the ISS (NORAD 25544). Please follow CelesTrak's usage guidance; OrbitX reuses a download for 2 hours and caches it. `data/sample_iss.tle` is one such element set, with its retrieval date in the file header.
+- Orbital elements: [CelesTrak](https://celestrak.org/) general-perturbations data for the ISS (NORAD 25544). Please follow CelesTrak's usage guidance; OrbitX reuses a download for 2 hours and caches it. `backend/data/sample_iss.tle` is one such element set, with its retrieval date in the file header.
 - Propagation and coordinates: Skyfield and the `sgp4` package. Map data and tiles: © OpenStreetMap contributors, subject to the OpenStreetMap tile usage policy.
 - OrbitX's own code is released under the [MIT License](LICENSE). It does not include third-party source code; dependencies (for example Skyfield and Folium under MIT, Streamlit and requests under Apache-2.0, pandas and NumPy under BSD-style licences) are installed separately under their own licences.
 - The optional background video is **not** covered by the MIT licence and is not distributed here; any video you add remains under its own licence.

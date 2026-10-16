@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import folium
 
-from orbitx.formatting import format_latitude, format_longitude, format_utc
-from orbitx.models import Observer, SatellitePosition
+from backend.formatting import format_latitude, format_longitude, format_utc
+from backend.models import Observer, SatellitePosition
 
 TRACK_COLOR = "#38bdf8"
 ISS_COLOR = "#f97316"

@@ -4,9 +4,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from orbitx import config, orbital_engine as eng, pass_predictor as pp, tle_service as tle
-from orbitx.models import DataSource
-from orbitx.validation import ValidationError, ensure_utc, tle_checksum_ok
+from backend import config, orbital_engine as eng, pass_predictor as pp, tle_service as tle
+from backend.models import DataSource
+from backend.validation import ValidationError, ensure_utc, tle_checksum_ok
 
 
 @pytest.fixture(scope="module")

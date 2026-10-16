@@ -1,10 +1,10 @@
 """OrbitX: mission-control dashboard for the International Space Station.
 
-Run with:  streamlit run app.py   (or scripts\\run.ps1 on Windows)
+Run with:  streamlit run frontend/app.py   (or scripts\\run.ps1 on Windows)
 
 This file is the entry point: it wires input, calculations and presentation together.
-Orbital maths lives in ``src/orbitx`` (tle_service, orbital_engine, pass_predictor, ...) and
-the Streamlit presentation in ``src/orbitx/ui``.
+Orbital maths, data retrieval and validation live in ``backend/``; everything the user sees
+(layout, styling, map, charts, video background) lives in ``frontend/``.
 """
 
 from __future__ import annotations
@@ -13,24 +13,25 @@ import sys
 from datetime import timedelta
 from pathlib import Path
 
-# Allow `streamlit run app.py` without installing the package.
-sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+# Allow `streamlit run frontend/app.py` without installing the packages: put the repository
+# root on the import path so that ``backend`` and ``frontend`` can be imported.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import streamlit as st  # noqa: E402
 
-from orbitx import tle_service  # noqa: E402
-from orbitx.models import Freshness  # noqa: E402
-from orbitx.orbital_engine import (  # noqa: E402
+from backend import tle_service  # noqa: E402
+from backend.models import Freshness  # noqa: E402
+from backend.orbital_engine import (  # noqa: E402
     PredictionError,
     build_satellite,
     compute_position,
     epoch_distance_warning,
 )
-from orbitx.pass_predictor import observer_from_text  # noqa: E402
-from orbitx.ui import background, components, tabs, theme  # noqa: E402
-from orbitx.ui.data import cached_track, load_data  # noqa: E402
-from orbitx.ui.sidebar import CUSTOM_LOCATION, init_state, render_sidebar  # noqa: E402
-from orbitx.validation import ValidationError, utcnow  # noqa: E402
+from backend.pass_predictor import observer_from_text  # noqa: E402
+from frontend import background, components, tabs, theme  # noqa: E402
+from frontend.data import cached_track, load_data  # noqa: E402
+from frontend.sidebar import CUSTOM_LOCATION, init_state, render_sidebar  # noqa: E402
+from backend.validation import ValidationError, utcnow  # noqa: E402
 
 st.set_page_config(page_title="OrbitX ISS Tracker", page_icon="🛰️", layout="wide")
 

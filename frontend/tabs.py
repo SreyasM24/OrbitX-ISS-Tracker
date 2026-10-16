@@ -5,15 +5,15 @@ from __future__ import annotations
 import streamlit as st
 from streamlit_folium import st_folium
 
-from orbitx import config
-from orbitx.charts import telemetry_figure, track_figure
-from orbitx.formatting import format_duration
-from orbitx.map_view import build_map
-from orbitx.missions import MISSIONS
-from orbitx.orbital_engine import PredictionError, split_track_segments
-from orbitx.pass_predictor import passes_to_frame
-from orbitx.ui.data import cached_passes
-from orbitx.validation import ValidationError
+from backend import config
+from frontend.charts import telemetry_figure, track_figure
+from backend.formatting import format_duration
+from frontend.map_view import build_map
+from backend.missions import MISSIONS
+from backend.orbital_engine import PredictionError, split_track_segments
+from backend.pass_predictor import passes_to_frame
+from frontend.data import cached_passes
+from backend.validation import ValidationError
 
 TAB_LABELS = ["🗺️ Map", "📈 Telemetry", "🔭 Passes", "🎯 Missions"]
 

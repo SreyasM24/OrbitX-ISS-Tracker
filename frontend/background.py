@@ -3,7 +3,7 @@
 How it works
 ------------
 * Streamlit only serves files from ``static/`` (``enableStaticServing`` in
-  ``.streamlit/config.toml``), so :func:`sync_video` copies ``assets/iss-background.mp4`` there.
+  ``.streamlit/config.toml``; Streamlit looks for ``static/`` next to the main script, i.e. ``frontend/static/``), so :func:`sync_video` copies ``frontend/assets/iss-background.mp4`` there.
 * :func:`render_background` writes one fixed, full-viewport layer with ``st.html``. Streamlit
   keeps the same DOM element between script reruns, so the video does not restart when a
   student changes a location, switches tab or downloads a file.
@@ -17,13 +17,20 @@ How it works
 from __future__ import annotations
 
 import inspect
+import os
 import shutil
 from pathlib import Path
 
 import streamlit as st
 
-from orbitx import config
+from backend import config
 
+FRONTEND_DIR = Path(__file__).resolve().parent
+ASSETS_DIR = FRONTEND_DIR / "assets"  # your local video goes here (git-ignored)
+STATIC_DIR = FRONTEND_DIR / "static"  # generated copy that Streamlit serves (git-ignored)
+BACKGROUND_VIDEO_PATH = Path(
+    os.environ.get("ORBITX_BACKGROUND_VIDEO", str(ASSETS_DIR / "iss-background.mp4"))
+)
 STATIC_URL_PREFIX = "app/static"  # where Streamlit serves ``static/`` (relative to the page)
 _JS_PATH = Path(__file__).with_name("background.js")
 
@@ -34,8 +41,8 @@ def sync_video(source: Path | None = None, static_dir: Path | None = None) -> st
     Returns the file name inside ``static/`` or ``None`` when there is no usable video.
     The copy is skipped when an identical file (same size and modification time) is already there.
     """
-    src = Path(source) if source is not None else config.BACKGROUND_VIDEO_PATH
-    dest_dir = Path(static_dir) if static_dir is not None else config.STATIC_DIR
+    src = Path(source) if source is not None else BACKGROUND_VIDEO_PATH
+    dest_dir = Path(static_dir) if static_dir is not None else STATIC_DIR
     try:
         if not src.is_file() or src.stat().st_size == 0:
             return None

@@ -4,9 +4,9 @@ import math
 
 import pytest
 
-from orbitx import config
-from orbitx.pass_predictor import make_observer, observer_from_text
-from orbitx.validation import (
+from backend import config
+from backend.pass_predictor import make_observer, observer_from_text
+from backend.validation import (
     ValidationError,
     validate_latitude,
     validate_longitude,

@@ -81,10 +81,10 @@ if ($LASTEXITCODE -ne 0) {
 
 & $VenvPython -m pip install --disable-pip-version-check -e $Root --no-deps
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "WARNING: editable install failed. The app and tests still work, but scripts you write yourself may not find 'orbitx'." -ForegroundColor Yellow
+    Write-Host "WARNING: editable install failed. The app and tests still work, but scripts you write yourself may not find 'backend'." -ForegroundColor Yellow
 }
 
-& $VenvPython -c "import orbitx, skyfield, streamlit, folium, plotly, pandas, requests; print('Imports OK: orbitx', orbitx.__version__, '| skyfield', skyfield.__version__, '| streamlit', streamlit.__version__)"
+& $VenvPython -c "import backend, frontend, skyfield, streamlit, folium, plotly, pandas, requests; print('Imports OK: backend', backend.__version__, '| skyfield', skyfield.__version__, '| streamlit', streamlit.__version__)"
 if ($LASTEXITCODE -ne 0) {
     Fail "The packages installed but could not be imported."
 }

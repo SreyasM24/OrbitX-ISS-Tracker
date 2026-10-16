@@ -22,8 +22,12 @@ dependencies = [
 dev = ["pytest>=8"]
 
 [tool.setuptools.packages.find]
-where = ["src"]
+include = ["backend*", "frontend*"]
+
+[tool.setuptools.package-data]
+backend = ["data/*.tle"]
+frontend = ["*.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["."]

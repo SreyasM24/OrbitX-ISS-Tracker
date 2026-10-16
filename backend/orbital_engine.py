@@ -22,9 +22,9 @@ import pandas as pd
 from skyfield.api import EarthSatellite, load, wgs84
 from skyfield.timelib import Timescale
 
-from orbitx import config
-from orbitx.models import SatellitePosition, TleRecord
-from orbitx.validation import ensure_utc, validate_track_request
+from backend import config
+from backend.models import SatellitePosition, TleRecord
+from backend.validation import ensure_utc, validate_track_request
 
 TRACK_COLUMNS = ["time_utc", "latitude_deg", "longitude_deg", "altitude_km", "speed_km_s"]
 

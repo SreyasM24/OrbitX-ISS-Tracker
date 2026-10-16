@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 import requests
 
-from orbitx import config, tle_service
+from backend import config, tle_service
 
 
 class FakeResponse:

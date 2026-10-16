@@ -6,8 +6,8 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-from orbitx.models import Observer, SatellitePosition
-from orbitx.orbital_engine import insert_antimeridian_gaps, split_track_segments
+from backend.models import Observer, SatellitePosition
+from backend.orbital_engine import insert_antimeridian_gaps, split_track_segments
 
 NAVY = "#0b1426"
 PANEL = "#111c33"

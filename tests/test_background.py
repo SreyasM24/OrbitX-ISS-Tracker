@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from orbitx.ui import background
+from frontend import background
 
 
 def test_missing_video_gives_gradient_only_layer(tmp_path):

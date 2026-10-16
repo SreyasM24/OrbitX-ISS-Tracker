@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import streamlit as st
 
-from orbitx import tle_service
-from orbitx.orbital_engine import build_satellite, predict_track
-from orbitx.pass_predictor import find_passes, observer_from_text
-from orbitx.models import TleRecord
+from backend import tle_service
+from backend.orbital_engine import build_satellite, predict_track
+from backend.pass_predictor import find_passes, observer_from_text
+from backend.models import TleRecord
 
 
 @st.cache_data(ttl=300, show_spinner="Fetching orbital elements…")

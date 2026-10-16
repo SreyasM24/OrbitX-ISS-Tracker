@@ -13,11 +13,11 @@ from typing import NamedTuple
 import pandas as pd
 from skyfield.api import EarthSatellite, wgs84
 
-from orbitx import config
-from orbitx.formatting import compass_point
-from orbitx.models import Observer, SatellitePass
-from orbitx.orbital_engine import PredictionError, get_timescale
-from orbitx.validation import (
+from backend import config
+from backend.formatting import compass_point
+from backend.models import Observer, SatellitePass
+from backend.orbital_engine import PredictionError, get_timescale
+from backend.validation import (
     ValidationError,
     ensure_utc,
     validate_latitude,
@@ -53,7 +53,7 @@ def make_observer(name: object, latitude_deg: object, longitude_deg: object,
 def observer_from_text(name: object, latitude_text: object, longitude_text: object) -> Observer:
     """Build an :class:`Observer` from text-box input (blank or partial entries are errors).
 
-    Raises :class:`~orbitx.validation.ValidationError` with a message fit for the UI.
+    Raises :class:`~backend.validation.ValidationError` with a message fit for the UI.
     """
     lat = str(latitude_text if latitude_text is not None else "").strip()
     lon = str(longitude_text if longitude_text is not None else "").strip()

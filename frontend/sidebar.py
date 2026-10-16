@@ -6,8 +6,8 @@ from dataclasses import dataclass
 
 import streamlit as st
 
-from orbitx import config
-from orbitx.ui.data import request_refresh
+from backend import config
+from frontend.data import request_refresh
 
 CUSTOM_LOCATION = "Custom location"
 ZONE_CHOICES = {"UTC and IST": ("UTC", "IST"), "UTC only": ("UTC",), "IST only": ("IST",)}

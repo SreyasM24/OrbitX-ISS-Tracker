@@ -1,7 +1,7 @@
 """Orbital-element retrieval, parsing, caching and offline fallback.
 
 This is the only module that performs network I/O. It never fabricates a result:
-the returned :class:`~orbitx.models.OrbitalData` states whether the elements were
+the returned :class:`~backend.models.OrbitalData` states whether the elements were
 downloaded now (LIVE), read from the local cache (CACHED) or taken from the bundled
 sample (SAMPLE), together with the true element epoch.
 """
@@ -16,9 +16,9 @@ from pathlib import Path
 
 import requests
 
-from orbitx import config
-from orbitx.models import DataSource, Freshness, OrbitalData, TleRecord
-from orbitx.validation import ensure_utc, tle_checksum_ok, utcnow
+from backend import config
+from backend.models import DataSource, Freshness, OrbitalData, TleRecord
+from backend.validation import ensure_utc, tle_checksum_ok, utcnow
 
 
 class TleParseError(ValueError):
@@ -108,7 +108,7 @@ def tle_age_days(tle: TleRecord, now: datetime) -> float:
 
 
 def classify_freshness(tle: TleRecord, now: datetime) -> Freshness:
-    """FRESH / STALE / EXPIRED according to the thresholds in :mod:`orbitx.config`."""
+    """FRESH / STALE / EXPIRED according to the thresholds in :mod:`backend.config`."""
     age = tle_age_days(tle, now)
     if age > config.STALE_EXPIRED_DAYS:
         return Freshness.EXPIRED

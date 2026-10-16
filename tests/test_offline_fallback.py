@@ -6,8 +6,8 @@ import pytest
 import requests
 
 from conftest import FakeResponse
-from orbitx import tle_service as ts
-from orbitx.models import DataSource
+from backend import tle_service as ts
+from backend.models import DataSource
 
 pytestmark = pytest.mark.usefixtures("no_network")
 
@@ -126,7 +126,7 @@ def test_expired_elements_carry_an_illustrative_warning(tmp_path, sample_tle):
 def test_naive_now_is_rejected(tmp_path):
     from datetime import datetime
 
-    from orbitx.validation import ValidationError
+    from backend.validation import ValidationError
 
     with pytest.raises(ValidationError):
         ts.get_orbital_data(offline=True, now=datetime(2026, 10, 21), cache_path=tmp_path / "c.json")

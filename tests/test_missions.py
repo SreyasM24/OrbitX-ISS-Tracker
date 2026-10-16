@@ -6,14 +6,14 @@ import textwrap
 
 import pytest
 
-from orbitx import config
-from orbitx.missions import MISSIONS, REQUIRED_SECTIONS, Mission
+from backend import config
+from backend.missions import MISSIONS, REQUIRED_SECTIONS, Mission
 
 ROOT = config.PROJECT_ROOT
 EXPECTED_FILES = ["mission-1.md", "mission-2.md", "mission-3.md", "mission-4.md", "final-challenge.md"]
 # Functions that the missions ask participants to *write*, so they must not exist yet.
 TASK_FUNCTIONS = {"format_altitude", "footprint_radius_km", "best_pass", "evening_passes"}
-FILE_REF = re.compile(r"`((?:src/orbitx/\w+\.py)|(?:app\.py)|(?:scripts/[\w.]+))`")
+FILE_REF = re.compile(r"`((?:(?:backend|frontend)/\w+\.py)|(?:scripts/[\w.]+))`")
 
 
 def headings(text: str) -> list[str]:
@@ -21,7 +21,7 @@ def headings(text: str) -> list[str]:
 
 
 def repo_source() -> str:
-    files = [ROOT / "app.py", *(ROOT / "src" / "orbitx").glob("*.py")]
+    files = [*(ROOT / "backend").glob("*.py"), *(ROOT / "frontend").glob("*.py")]
     return "\n".join(p.read_text(encoding="utf-8") for p in files)
 
 
@@ -81,9 +81,9 @@ def test_missions_do_not_ask_for_secrets_or_paid_services(mission):
 
 
 def test_starter_snippet_names_exist():
-    import orbitx.orbital_engine as eng
-    import orbitx.pass_predictor as pp
-    import orbitx.tle_service as ts
+    import backend.orbital_engine as eng
+    import backend.pass_predictor as pp
+    import backend.tle_service as ts
 
     assert all(hasattr(eng, n) for n in ("build_satellite", "compute_position"))
     assert all(hasattr(pp, n) for n in ("make_observer", "find_passes"))

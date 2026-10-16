@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 from datetime import datetime, timedelta, timezone
 
-from orbitx import config
+from backend import config
 
 
 class ValidationError(ValueError):

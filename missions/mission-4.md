@@ -23,9 +23,9 @@ A pass that peaks at 60Â° is a long, bright overhead pass. One that peaks at 12Â
 
 | File | What it does |
 | --- | --- |
-| `src/orbitx/pass_predictor.py` | `find_passes()`, `passes_to_frame()`, `assemble_passes()` (you will edit this one) |
-| `src/orbitx/models.py` | The `SatellitePass` dataclass |
-| `src/orbitx/ui/tabs.py` | The **Passes** tab (`render_passes_tab()`) |
+| `backend/pass_predictor.py` | `find_passes()`, `passes_to_frame()`, `assemble_passes()` (you will edit this one) |
+| `backend/models.py` | The `SatellitePass` dataclass |
+| `frontend/tabs.py` | The **Passes** tab (`render_passes_tab()`) |
 
 ## Instructions
 
@@ -38,7 +38,7 @@ A pass that peaks at 60Â° is a long, bright overhead pass. One that peaks at 12Â
 
 ## Your task
 
-Add a helper `best_pass(passes)` to `src/orbitx/pass_predictor.py` that returns the **complete pass with the highest maximum elevation**, or `None` if there is no complete pass. Then use it in `src/orbitx/ui/tabs.py` (in `render_passes_tab()`, just above the table) to show a green summary line such as:
+Add a helper `best_pass(passes)` to `backend/pass_predictor.py` that returns the **complete pass with the highest maximum elevation**, or `None` if there is no complete pass. Then use it in `frontend/tabs.py` (in `render_passes_tab()`, just above the table) to show a green summary line such as:
 
 `Best pass in this window: peaks at 62Â° at 2026-10-21 13:08:11 UTC`
 
@@ -46,7 +46,7 @@ A *complete* pass has a known rise, peak and set (`SatellitePass.is_complete`).
 
 ## AI prompt
 
-> In the OrbitX project, `src/orbitx/models.py` defines a `SatellitePass` dataclass with `max_elevation_deg`, `culmination_time_utc` and an `is_complete` property. In `src/orbitx/pass_predictor.py` add `best_pass(passes: list[SatellitePass]) -> SatellitePass | None` that returns the complete pass with the highest `max_elevation_deg`, or `None` if there is none. Then show me the lines to add to the Passes tab in `app.py`, just above the `st.dataframe(passes_to_frame(...))` call, that display `st.success(...)` with the peak elevation and the UTC time (use `format_utc` from `orbitx.formatting`, already imported). Keep changes minimal and don't change existing function signatures.
+> In the OrbitX project, `backend/models.py` defines a `SatellitePass` dataclass with `max_elevation_deg`, `culmination_time_utc` and an `is_complete` property. In `backend/pass_predictor.py` add `best_pass(passes: list[SatellitePass]) -> SatellitePass | None` that returns the complete pass with the highest `max_elevation_deg`, or `None` if there is none. Then show me the lines to add to the Passes tab in `frontend/app.py`, just above the `st.dataframe(passes_to_frame(...))` call, that display `st.success(...)` with the peak elevation and the UTC time (use `format_utc` from `orbitx.formatting`, already imported). Keep changes minimal and don't change existing function signatures.
 
 Check: does it ignore incomplete passes? Does it handle an empty list without crashing?
 
@@ -59,7 +59,7 @@ Check: does it ignore incomplete passes? Does it handle an empty list without cr
 ## Verify
 
 ```powershell
-python -c "from orbitx.pass_predictor import best_pass; print(best_pass([]))"
+python -c "from backend.pass_predictor import best_pass; print(best_pass([]))"
 ```
 
 It must print `None`. Then, in the browser, compare the green line with the table by eye. Finally decide: *for the best pass, was the observer in darkness?* Write one sentence about it, using the concept section above.
@@ -71,7 +71,7 @@ It must print `None`. Then, in the browser, compare the green line with the tabl
 - **The green line shows a time that is not in the table**: you may be showing the *rise* instead of the *peak* time, or the wrong time zone. Check the column label.
 - **"Fix the observer location"**: latitude or longitude text is invalid. Press **Reset to default location**.
 - **No passes at all**: widen the window or lower the minimum elevation.
-- Restore: `git checkout -- src/orbitx/pass_predictor.py src/orbitx/ui/tabs.py`.
+- Restore: `git checkout -- backend/pass_predictor.py frontend/tabs.py`.
 
 ## Optional extension
 

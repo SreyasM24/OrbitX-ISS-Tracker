@@ -15,11 +15,11 @@ import streamlit as st
 from streamlit.testing.v1 import AppTest
 
 from conftest import FakeResponse
-from orbitx import config, tle_service
-from orbitx import validation
-from orbitx.missions import MISSIONS
+from backend import config, tle_service
+from backend import validation
+from backend.missions import MISSIONS
 
-APP = str(Path(__file__).resolve().parents[1] / "app.py")
+APP = str(Path(__file__).resolve().parents[1] / "frontend" / "app.py")
 REAL_GET_ORBITAL_DATA = tle_service.get_orbital_data
 
 

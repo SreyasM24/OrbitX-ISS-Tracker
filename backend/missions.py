@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from orbitx import config
+from backend import config
 
 
 @dataclass(frozen=True)
