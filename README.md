@@ -6,6 +6,12 @@ This repository is a small, beginner-friendly **International Space Station trac
 
 It needs **no API key and no paid service**. It downloads public orbital elements, calculates where the ISS is and will be, shows that on a map and in charts, and predicts when it passes over a chosen place.
 
+![OrbitX dashboard: telemetry cards, status panel and ground-track map](docs/images/dashboard-map.png)
+
+![OrbitX pass predictions](docs/images/dashboard-passes.png)
+
+*Screenshots are real captures of the app (shown without the optional background video, see [Background video](#background-video)).*
+
 > OrbitX is an educational tool. It is not a navigation, safety or scientific-grade tracking system. See [Scientific limitations](#scientific-limitations).
 
 ## Features
@@ -16,6 +22,7 @@ It needs **no API key and no paid service**. It downloads public orbital element
 - Telemetry charts (Plotly): latitude, longitude and altitude against UTC time.
 - Observation-pass table for any location: rise, peak, set, duration, peak elevation and compass directions, in UTC and IST.
 - Example cities (Visakhapatnam by default) or your own validated latitude/longitude.
+- A premium "mission control" interface: dark glass panels, pill tabs, keyboard-visible focus, responsive layout, and an optional looping ISS video behind the dashboard.
 - Five guided missions with starter code, AI-prompt suggestions and verification steps (`missions/`).
 - The core dashboard keeps working without internet, using the cache or the bundled sample. The street map and its scripts need internet; a plain track plot is the offline substitute (see [Offline mode](#offline-mode)).
 
@@ -24,7 +31,7 @@ It needs **no API key and no paid service**. It downloads public orbital element
 ## Repository structure
 
 ```
-app.py                      Streamlit dashboard (input, orchestration, presentation only)
+app.py                      Streamlit entry point: wires data, calculations and UI together
 src/orbitx/
   config.py                 Constants, thresholds, example cities
   models.py                 Typed dataclasses (TleRecord, Observer, SatellitePass, ...)
@@ -36,12 +43,22 @@ src/orbitx/
   charts.py                 Plotly telemetry charts
   formatting.py             Display formatting
   missions.py               Mission registry and required-section contract
+  ui/                       Streamlit presentation only (no orbital maths)
+    theme.py                  Stylesheet (CSS)
+    background.py / .js       Background video layer and seamless-loop script
+    components.py             Header, status panel, telemetry cards, footer
+    sidebar.py                Observer, ground-track and pass controls
+    tabs.py                   Map, Telemetry, Passes and Missions tabs
+    data.py                   st.cache_data wrappers
 missions/                   Five mission guides (Markdown)
 data/sample_iss.tle         Bundled offline sample orbital elements
+assets/                     Optional local background video (not in the repo; see assets/README.md)
+docs/                       ARCHITECTURE.md, TROUBLESHOOTING.md, screenshots
 tests/                      pytest suite (no network needed)
 scripts/setup.ps1           Windows one-time setup
 scripts/run.ps1             Windows launcher
 FACILITATOR_GUIDE.md        For workshop organisers
+CONTRIBUTING.md             How to contribute
 ```
 
 ## Requirements
@@ -86,6 +103,16 @@ pip install -e .
 streamlit run app.py
 ```
 
+## Background video
+
+OrbitX can play a muted, looping ISS video behind the dashboard. **The video is not included in this repository**: the stock footage used by the maintainers has no confirmed redistribution licence. Without it you see a dark navy gradient and everything else works.
+
+To enable it, put a video you are allowed to use at `assets/iss-background.mp4` (or set `ORBITX_BACKGROUND_VIDEO`) and restart the app. Details and tips: [assets/README.md](assets/README.md). The video keeps playing when you switch tabs or change settings; it is a fixed layer that Streamlit does not re-create on reruns, and the end of the clip is crossfaded into its start.
+
+## Club branding
+
+The header carries a small **GITAM AERO ASTRO CLUB / GAAC · GITAM UNIVERSITY** attribution badge with a generic orbit icon (it is not an official logo). OrbitX remains the primary product.
+
 ## Virtual environment
 
 Activate it before running Python commands yourself: `.\.venv\Scripts\Activate.ps1` (Windows) or `source .venv/bin/activate` (macOS/Linux). Your prompt shows `(.venv)`. To check, run `python -c "import sys; print(sys.executable)"`; the path must end in `.venv\Scripts\python.exe` (or `.venv/bin/python`). Leave with `deactivate`.
@@ -96,7 +123,7 @@ Activate it before running Python commands yourself: `.\.venv\Scripts\Activate.p
 python -m pytest
 ```
 
-The suite makes no network requests and does not depend on the ISS's current position (the clock is fixed in UI tests). The UI tests use Streamlit's `AppTest`, which runs the script headlessly and does not open a browser. During the release review the interface was additionally exercised with hand-written scripts in headless Microsoft Edge (all tabs, city and invalid-input handling, CSV download, desktop and 420 px widths, blocked external hosts). Those browser checks are not part of the automated suite, so please also do a quick visual run yourself.
+The suite makes no network requests and does not depend on the ISS's current position (the clock is fixed in UI tests). The UI tests use Streamlit's `AppTest`, which runs the script headlessly and does not open a browser. The redesigned interface was additionally driven by hand-written Playwright scripts in Google Chrome on Windows 11 (all tabs, city and invalid-input handling, CSV download, 1440 px and 390 px widths, video continuity across reruns). Those browser checks are not part of the automated suite, so please also do a quick visual run yourself.
 
 ## Offline mode
 
@@ -123,6 +150,10 @@ Sample data ages: positions from a sample that is weeks old are only illustrativ
 
 The guides also appear in the app's **Missions** tab. The core app works before any mission starts; each mission asks for one small code change. Organisers: see [FACILITATOR_GUIDE.md](FACILITATOR_GUIDE.md).
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for where UI, scientific and data code belongs, how to add a mission and how to open a pull request. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the data flow; [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) lists common problems.
+
 ## Git and GitHub workflow
 
 Clone the workshop repository (or your fork of it):
@@ -138,7 +169,7 @@ git commit -m "Mission 1: show altitude in miles"
 git push -u origin my-pair-name
 ```
 
-If something breaks, `git diff` shows what changed and `git checkout -- <file>` restores one file from the last commit. Do not commit `.venv/` or `.orbitx_cache/` (they are in `.gitignore`).
+If something breaks, `git diff` shows what changed and `git checkout -- <file>` restores one file from the last commit. Do not commit `.venv/`, `.orbitx_cache/`, `static/` or video files (they are in `.gitignore`).
 
 ## Troubleshooting
 
@@ -151,6 +182,7 @@ If something breaks, `git diff` shows what changed and `git checkout -- <file>` 
 | Page says **SAMPLE, NOT live** | You are offline, or CelesTrak could not be reached. This is a deliberate, honest fallback. |
 | Port 8501 is busy | `.\scripts\run.ps1 -Port 8502`. |
 | Browser does not open | Open `http://localhost:8501` yourself. |
+| No video background | Expected unless you add `assets/iss-background.mp4` (see [Background video](#background-video)). |
 | Map is grey | Map tiles need internet. The ISS marker and track still draw. |
 | Map area is completely empty | The map's scripts also need internet. Use the **Plain track plot** expander below it. |
 | Edited code, page unchanged | Save the file, then use **Rerun** in the Streamlit menu (or press **R**). |
@@ -170,3 +202,4 @@ If something breaks, `git diff` shows what changed and `git checkout -- <file>` 
 - Orbital elements: [CelesTrak](https://celestrak.org/) general-perturbations data for the ISS (NORAD 25544). Please follow CelesTrak's usage guidance; OrbitX reuses a download for 2 hours and caches it. `data/sample_iss.tle` is one such element set, with its retrieval date in the file header.
 - Propagation and coordinates: Skyfield and the `sgp4` package. Map data and tiles: © OpenStreetMap contributors, subject to the OpenStreetMap tile usage policy.
 - OrbitX's own code is released under the [MIT License](LICENSE). It does not include third-party source code; dependencies (for example Skyfield and Folium under MIT, Streamlit and requests under Apache-2.0, pandas and NumPy under BSD-style licences) are installed separately under their own licences.
+- The optional background video is **not** covered by the MIT licence and is not distributed here; any video you add remains under its own licence.
