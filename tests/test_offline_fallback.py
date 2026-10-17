@@ -199,3 +199,74 @@ def test_cache_preserves_source_url_and_displays_cached_mirror_label(tmp_path, s
     assert cached_data.source is DataSource.CACHED
     assert "ARISS" in cached_data.source_label
 
+
+def test_primary_malformed_falls_back_to_valid_secondary(tmp_path, sample_text):
+    calls = []
+
+    def mock_malformed_primary(url, **kwargs):
+        calls.append(url)
+        if len(calls) == 1:
+            return FakeResponse("Corrupted garbage header\n1 99999 ...\n2 99999 ...")
+        return FakeResponse(sample_text)
+
+    tle = ts.fetch_live_tle(http_get=mock_malformed_primary)
+    assert tle.catalog_number == 25544
+    assert len(calls) == 2
+
+
+def test_all_endpoints_failing_provides_diagnostic_breakdown(tmp_path):
+    def mock_failing(url, **kwargs):
+        if "stations" in url:
+            return FakeResponse("Bad gateway", status_code=502)
+        if "wheretheiss" in url:
+            return FakeResponse("Not a TLE")
+        raise requests.exceptions.Timeout("timed out")
+
+    data = ts.get_orbital_data(cache_path=tmp_path / "c.json", http_get=mock_failing)
+    assert data.source is DataSource.SAMPLE
+    warn_text = " ".join(data.warnings)
+    assert "Live download failed" in warn_text
+    assert "timed out" in warn_text
+    assert "HTTP 502" in warn_text
+
+
+def test_sample_freshness_status_does_not_display_green_fresh(sample_tle):
+    import unittest.mock as mock
+    from frontend import components
+    from backend.models import Freshness, OrbitalData
+
+    data = OrbitalData(
+        tle=sample_tle,
+        source=DataSource.SAMPLE,
+        retrieved_at_utc=None,
+        source_label="Bundled sample",
+        status_message="Offline sample",
+        warnings=(),
+    )
+
+    calls = []
+
+    class DummyCol:
+        def markdown(self, text): calls.append(("markdown", text))
+        def write(self, text): calls.append(("write", text))
+        def success(self, text): calls.append(("success", text))
+        def warning(self, text): calls.append(("warning", text))
+        def error(self, text): calls.append(("error", text))
+        def info(self, text): calls.append(("info", text))
+
+    class DummyContainer:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+
+    with mock.patch("streamlit.container", return_value=DummyContainer()), \
+         mock.patch("streamlit.columns", return_value=(DummyCol(), DummyCol(), DummyCol())), \
+         mock.patch("streamlit.caption"), \
+         mock.patch("streamlit.warning"):
+        components.render_status(data, sample_tle, age_days=0.5, freshness=Freshness.FRESH)
+
+    success_calls = [text for op, text in calls if op == "success"]
+    assert "FRESH" not in success_calls
+    warning_calls = [text for op, text in calls if op == "warning"]
+    assert any("SAMPLE / NOT LIVE" in t for t in warning_calls)
+
+

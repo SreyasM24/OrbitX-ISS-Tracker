@@ -20,7 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import streamlit as st  # noqa: E402
 
 from backend import tle_service  # noqa: E402
-from backend.models import Freshness  # noqa: E402
+from backend.models import DataSource, Freshness  # noqa: E402
 from backend.orbital_engine import (  # noqa: E402
     PredictionError,
     build_satellite,
@@ -77,7 +77,7 @@ def render_live_dashboard() -> None:
         st.error(f"Could not calculate the ISS position: {exc}")
         return
 
-    illustrative = freshness is Freshness.EXPIRED
+    illustrative = (data.source is DataSource.SAMPLE) or (freshness is Freshness.EXPIRED)
     components.render_telemetry(position, illustrative)
     distance_note = epoch_distance_warning(tle, start + timedelta(minutes=controls.track_minutes))
     if distance_note:

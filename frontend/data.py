@@ -11,18 +11,34 @@ import streamlit as st
 from backend import tle_service
 from backend.orbital_engine import build_satellite, predict_track
 from backend.pass_predictor import find_passes, observer_from_text
-from backend.models import TleRecord
+from backend.models import DataSource, TleRecord
 
 
 @st.cache_data(ttl=300, show_spinner="Fetching orbital elements…")
+def _fetch_cached_orbital_data(force_refresh: bool = False):
+    return tle_service.get_orbital_data(force_refresh=force_refresh)
+
+
 def load_data(force_refresh: bool = False):
     """Orbital elements with provenance. Cached 5 min; tle_service has its own 2 h cache."""
-    return tle_service.get_orbital_data(force_refresh=force_refresh)
+    if force_refresh:
+        _fetch_cached_orbital_data.clear()
+    data = _fetch_cached_orbital_data(force_refresh=force_refresh)
+    # Never lock the dashboard into a failed fallback state: if sample data was
+    # returned because of a transient network issue, clear the memory cache so
+    # subsequent reloads or retries can immediately re-attempt live retrieval.
+    if data.source is DataSource.SAMPLE:
+        _fetch_cached_orbital_data.clear()
+    return data
+
+
+# Maintain load_data.clear() compatibility
+load_data.clear = _fetch_cached_orbital_data.clear
 
 
 def request_refresh() -> None:
     """Button callback: drop the 5-minute cache and ask for a fresh download on the next run."""
-    load_data.clear()
+    _fetch_cached_orbital_data.clear()
     st.session_state["force_refresh"] = True
 
 

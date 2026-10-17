@@ -40,7 +40,8 @@ DEFAULT_TLE_URLS: tuple[str, ...] = (
 )
 
 # Standard timeout per endpoint attempt in seconds.
-HTTP_TIMEOUT_S = float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "6"))
+# Bounded to avoid long UI blocking while allowing realistic HTTPS handshakes.
+HTTP_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "4.0")), 15.0)
 USER_AGENT = "OrbitX-workshop/1.0 (educational; GITAM Aero Astro Club)"
 
 # CelesTrak refreshes ISS elements every few hours and asks clients not to poll

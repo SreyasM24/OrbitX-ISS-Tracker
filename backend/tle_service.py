@@ -9,7 +9,9 @@ sample (SAMPLE), together with the true element epoch.
 from __future__ import annotations
 
 import json
+import logging
 import os
+import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -19,6 +21,8 @@ import requests
 from backend import config
 from backend.models import DataSource, Freshness, OrbitalData, TleRecord
 from backend.validation import ensure_utc, tle_checksum_ok, utcnow
+
+logger = logging.getLogger("orbitx.tle")
 
 
 class TleParseError(ValueError):
@@ -155,6 +159,25 @@ def freshness_warning(tle: TleRecord, now: datetime) -> str | None:
     return None
 
 
+def _endpoint_display_name(target_url: str) -> str:
+    """Return a clean, safe label for an endpoint without sensitive query params."""
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(target_url)
+        domain = parsed.netloc or target_url
+        if "celestrak" in domain:
+            if "GROUP=stations" in (parsed.query or ""):
+                return "CelesTrak (stations group)"
+            return "CelesTrak (NORAD 25544)"
+        if "wheretheiss" in domain:
+            return "WhereTheISS.at mirror"
+        if "ariss" in domain:
+            return "ARISS mirror"
+        return domain
+    except Exception:
+        return target_url
+
+
 # ---------------------------------------------------------------------------- fetch
 def fetch_live_tle(
     url: str | None = None,
@@ -170,28 +193,64 @@ def fetch_live_tle(
     urls_to_try = [url] if url else list(config.DEFAULT_TLE_URLS)
 
     last_error: Exception | None = None
+    attempt_errors: list[str] = []
     for target_url in urls_to_try:
+        endpoint_name = _endpoint_display_name(target_url)
+        start_time = time.monotonic()
         try:
+            logger.info("Attempting TLE fetch from %s (timeout=%.1fs)", endpoint_name, timeout)
             response = getter(
                 target_url,
                 timeout=timeout,
                 headers=headers,
             )
+            elapsed = time.monotonic() - start_time
             response.raise_for_status()
-            return parse_tle_text(response.text, source_url=target_url)
+            record = parse_tle_text(response.text, source_url=target_url)
+            logger.info(
+                "Successfully fetched TLE from %s in %.2fs (NORAD %d, epoch %s)",
+                endpoint_name,
+                elapsed,
+                record.catalog_number,
+                record.epoch_utc.isoformat(),
+            )
+            return record
         except requests.exceptions.Timeout:
+            elapsed = time.monotonic() - start_time
+            msg = f"{endpoint_name}: the request timed out (after {elapsed:.1f}s)"
+            logger.warning("TLE fetch timeout on %s after %.2fs", endpoint_name, elapsed)
+            attempt_errors.append(msg)
             last_error = TleFetchError("the request timed out")
-        except requests.exceptions.ConnectionError:
+        except requests.exceptions.ConnectionError as exc:
+            elapsed = time.monotonic() - start_time
+            msg = f"{endpoint_name}: no network connection"
+            logger.warning("TLE connection error on %s: %s", endpoint_name, exc)
+            attempt_errors.append(msg)
             last_error = TleFetchError("no network connection")
         except requests.exceptions.HTTPError as exc:
+            elapsed = time.monotonic() - start_time
             status = getattr(exc.response, "status_code", "unknown")
+            msg = f"{endpoint_name}: the server returned HTTP {status}"
+            logger.warning("TLE HTTP error on %s: %s", endpoint_name, msg)
+            attempt_errors.append(msg)
             last_error = TleFetchError(f"the server returned HTTP {status}")
         except requests.exceptions.RequestException as exc:
+            elapsed = time.monotonic() - start_time
+            msg = f"{endpoint_name}: request failed ({type(exc).__name__})"
+            logger.warning("TLE request exception on %s: %s", endpoint_name, exc)
+            attempt_errors.append(msg)
             last_error = TleFetchError(f"request failed ({type(exc).__name__})")
         except TleParseError as exc:
+            elapsed = time.monotonic() - start_time
+            msg = f"{endpoint_name}: {exc}"
+            logger.warning("TLE parse error on %s: %s", endpoint_name, exc)
+            attempt_errors.append(msg)
             last_error = exc
 
     if last_error is not None:
+        if len(attempt_errors) > 1:
+            summary = "; ".join(attempt_errors)
+            raise TleFetchError(f"{last_error} (all {len(attempt_errors)} endpoints failed: {summary})")
         raise last_error
     raise TleFetchError("no data received")
 

@@ -15,6 +15,7 @@ from backend.formatting import (
     format_utc,
 )
 from backend.models import DataSource, Freshness
+from backend.validation import utcnow
 
 # A generic orbit-ring glyph. It is NOT the club's official logo.
 _ORBIT_ICON = (
@@ -60,13 +61,24 @@ def render_status(data, tle, age_days: float, freshness: Freshness) -> None:
         middle.markdown("**Orbital element epoch**")
         middle.write(f"{format_utc(tle.epoch_utc)}  \n{format_age(age_days)} old")
         right.markdown("**Element freshness**")
-        badge = {Freshness.FRESH: right.success, Freshness.STALE: right.warning,
-                 Freshness.EXPIRED: right.error}[freshness]
-        badge(freshness.value.upper())
-        if data.retrieved_at_utc is not None:
+        if data.source is DataSource.SAMPLE and freshness is Freshness.FRESH:
+            right.warning("SAMPLE / NOT LIVE")
+        else:
+            badge = {
+                Freshness.FRESH: right.success,
+                Freshness.STALE: right.warning,
+                Freshness.EXPIRED: right.error,
+            }[freshness]
+            badge(freshness.value.upper())
+        if data.source is DataSource.CACHED and data.retrieved_at_utc is not None:
+            cached_age_s = max((utcnow() - data.retrieved_at_utc).total_seconds(), 0)
+            st.caption(
+                f"Downloaded {format_utc(data.retrieved_at_utc)} ({format_age(cached_age_s / 86400.0)} ago) · {data.status_message}"
+            )
+        elif data.retrieved_at_utc is not None:
             st.caption(f"Downloaded {format_utc(data.retrieved_at_utc)} · {data.status_message}")
         else:
-            st.caption(data.status_message)
+            st.caption(f"{data.status_message} (Demonstration mode: not tracking live orbit).")
     for note in data.warnings:
         st.warning(note)
 
