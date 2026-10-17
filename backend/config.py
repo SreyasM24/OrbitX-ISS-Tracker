@@ -15,8 +15,9 @@ DATA_DIR = Path(__file__).resolve().parent / "data"  # bundled, read-only sample
 MISSIONS_DIR = PROJECT_ROOT / "missions"
 SAMPLE_TLE_PATH = DATA_DIR / "sample_iss.tle"
 
+APP_VERSION = "v1.2.0"
 ISS_NORAD_ID = 25544
-ISS_NAME_HINTS = ("ISS", "ZARYA")
+ISS_NAME_HINTS = ("ISS", "ZARYA", "SPACE STATION")
 
 CELESTRAK_URL = os.environ.get(
     "ORBITX_TLE_URL",
@@ -31,17 +32,18 @@ ARISS_TLE_URL = "https://live.ariss.org/iss.txt"
 
 # Default candidate endpoints attempted in order when ORBITX_TLE_URL is not set.
 # If CelesTrak is rate-limiting or dropping cloud container IPs (AWS US-East),
-# failover to WhereTheISS or ARISS live mirrors ensures zero downtime.
+# failover immediately to WhereTheISS or ARISS live mirrors before trying the
+# secondary CelesTrak stations feed on the same domain.
 DEFAULT_TLE_URLS: tuple[str, ...] = (
     CELESTRAK_URL,
-    CELESTRAK_FALLBACK_URL,
     WHERETHEISS_TLE_URL,
     ARISS_TLE_URL,
+    CELESTRAK_FALLBACK_URL,
 )
 
 # Standard timeout per endpoint attempt in seconds.
 # Bounded to avoid long UI blocking while allowing realistic HTTPS handshakes.
-HTTP_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "4.0")), 15.0)
+HTTP_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "3.5")), 10.0)
 USER_AGENT = "OrbitX-workshop/1.0 (educational; GITAM Aero Astro Club)"
 
 # CelesTrak refreshes ISS elements every few hours and asks clients not to poll

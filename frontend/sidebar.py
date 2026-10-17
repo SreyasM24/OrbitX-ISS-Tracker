@@ -102,4 +102,22 @@ def render_sidebar() -> Controls:
                                   int(config.DEFAULT_MIN_ELEVATION_DEG), step=5,
                                   help="How high above the horizon the ISS must climb to count.")
         zone_label = st.radio("Show pass times in", list(ZONE_CHOICES))
+
+        with st.expander("🛠️ Live Network Diagnostics", expanded=False):
+            st.caption("Probe candidate TLE endpoints directly from this running server.")
+            if st.button("Run Live Endpoint Probes", key="btn_probe_endpoints"):
+                with st.spinner("Probing candidate endpoints..."):
+                    from backend.diagnostics import probe_all_endpoints
+                    results = probe_all_endpoints()
+                    for r in results:
+                        status = r["status_code"] or "ERR"
+                        if r["phase"] == "success":
+                            st.success(
+                                f"**{r['endpoint']}**: {r['elapsed_s']}s (HTTP {status}) — NORAD {r['catalog_number']}"
+                            )
+                        else:
+                            st.warning(
+                                f"**{r['endpoint']}**: {r['elapsed_s']}s [{r['phase']}] — {r['error']}"
+                            )
+
     return Controls(track_minutes, step_s, search_hours, min_elevation, zone_label, refresh_seconds)

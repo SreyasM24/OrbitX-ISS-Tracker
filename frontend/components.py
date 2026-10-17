@@ -14,6 +14,7 @@ from backend.formatting import (
     format_longitude,
     format_utc,
 )
+from backend import config
 from backend.models import DataSource, Freshness
 from backend.validation import utcnow
 
@@ -100,9 +101,9 @@ def render_footer() -> None:
     """Data-source and map attributions plus the educational-use disclaimer."""
     st.divider()
     st.markdown(
-        '<div class="ox-footer">Orbital elements: CelesTrak (Dr. T.S. Kelso). Propagation: '
+        '<div class="ox-footer">Orbital elements: CelesTrak, WhereTheISS & ARISS. Propagation: '
         "Skyfield + SGP4. Base map: © OpenStreetMap contributors. OrbitX is an educational "
         "tool; do not use it for navigation or safety-critical decisions.<br>"
-        "Built for the <b>GITAM Aero Astro Club (GAAC)</b> OrbitX workshop.</div>",
+        f"Built for the <b>GITAM Aero Astro Club (GAAC)</b> OrbitX workshop. · <code>OrbitX {config.APP_VERSION}</code></div>",
         unsafe_allow_html=True,
     )

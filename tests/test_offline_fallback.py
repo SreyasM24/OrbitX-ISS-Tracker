@@ -174,7 +174,7 @@ def test_celestrak_block_falls_back_to_wheretheiss_mirror(tmp_path, sample_text)
     data = ts.get_orbital_data(cache_path=tmp_path / "c.json", http_get=mock_getter)
     assert data.source is DataSource.LIVE
     assert "WhereTheISS.at" in data.source_label
-    assert len(calls) == 3
+    assert len(calls) == 2
 
 
 def test_cache_preserves_source_url_and_displays_cached_mirror_label(tmp_path, sample_text, sample_tle):
@@ -268,5 +268,31 @@ def test_sample_freshness_status_does_not_display_green_fresh(sample_tle):
     assert "FRESH" not in success_calls
     warning_calls = [text for op, text in calls if op == "warning"]
     assert any("SAMPLE / NOT LIVE" in t for t in warning_calls)
+
+
+def test_probe_endpoint_success(sample_text):
+    from backend import diagnostics
+    res = diagnostics.probe_endpoint("https://example.com/tle", http_get=lambda *a, **k: FakeResponse(sample_text))
+    assert res["phase"] == "success"
+    assert res["status_code"] == 200
+    assert res["catalog_number"] == 25544
+    assert res["error"] is None
+
+
+def test_probe_endpoint_timeout():
+    from backend import diagnostics
+    res = diagnostics.probe_endpoint("https://example.com/tle", http_get=raise_timeout)
+    assert res["phase"] == "networking"
+    assert res["status_code"] is None
+    assert "timed out" in res["error"]
+
+
+def test_probe_endpoint_parse_error():
+    from backend import diagnostics
+    res = diagnostics.probe_endpoint("https://example.com/tle", http_get=lambda *a, **k: FakeResponse("invalid data"))
+    assert res["phase"] == "validation"
+    assert res["status_code"] == 200
+    assert "validation error" in res["error"]
+
 
 
