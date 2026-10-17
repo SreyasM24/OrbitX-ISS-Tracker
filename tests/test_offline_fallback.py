@@ -160,3 +160,42 @@ def test_multi_satellite_tle_finds_iss_among_others(sample_text):
     tle = ts.parse_tle_text(combined)
     assert tle.catalog_number == 25544
     assert "ISS" in tle.name
+
+
+def test_celestrak_block_falls_back_to_wheretheiss_mirror(tmp_path, sample_text):
+    calls = []
+
+    def mock_getter(target_url, **kwargs):
+        calls.append(target_url)
+        if "celestrak" in target_url:
+            raise requests.exceptions.Timeout("celestrak blocked in cloud")
+        return FakeResponse(sample_text)
+
+    data = ts.get_orbital_data(cache_path=tmp_path / "c.json", http_get=mock_getter)
+    assert data.source is DataSource.LIVE
+    assert "WhereTheISS.at" in data.source_label
+    assert len(calls) == 3
+
+
+def test_cache_preserves_source_url_and_displays_cached_mirror_label(tmp_path, sample_text, sample_tle):
+    cache = tmp_path / "c.json"
+    now = sample_tle.epoch_utc + timedelta(hours=1)
+
+    def mock_ariss(target_url, **kwargs):
+        if "ariss" in target_url:
+            return FakeResponse(sample_text)
+        raise requests.exceptions.Timeout("timeout")
+
+    data = ts.get_orbital_data(now=now, cache_path=cache, http_get=mock_ariss)
+    assert data.source is DataSource.LIVE
+    assert "ARISS" in data.source_label
+
+    # Second load within 2-hour window uses cache with truthful ARISS cached label
+    cached_data = ts.get_orbital_data(
+        now=now + timedelta(minutes=15),
+        cache_path=cache,
+        http_get=never_called,
+    )
+    assert cached_data.source is DataSource.CACHED
+    assert "ARISS" in cached_data.source_label
+

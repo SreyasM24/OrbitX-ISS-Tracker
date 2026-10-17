@@ -43,7 +43,11 @@ def tle_epoch(line1: str) -> datetime:
     return datetime(year, 1, 1, tzinfo=timezone.utc) + timedelta(days=day_of_year - 1.0)
 
 
-def parse_tle_text(text: str, expected_catalog_number: int = config.ISS_NORAD_ID) -> TleRecord:
+def parse_tle_text(
+    text: str,
+    expected_catalog_number: int = config.ISS_NORAD_ID,
+    source_url: str = "",
+) -> TleRecord:
     """Parse and validate TLE text (2-line or 3-line form, ``#`` comments allowed).
 
     Checks line numbers, lengths, checksums, catalogue number on both lines, the
@@ -105,6 +109,7 @@ def parse_tle_text(text: str, expected_catalog_number: int = config.ISS_NORAD_ID
         line2=line2,
         catalog_number=catalog_1,
         epoch_utc=tle_epoch(line1),
+        source_url=source_url,
     )
 
 
@@ -162,7 +167,7 @@ def fetch_live_tle(
     headers = {"User-Agent": config.USER_AGENT}
 
     # If an explicit URL was provided (custom override or test fixture), use only that URL.
-    urls_to_try = [url] if url else [config.CELESTRAK_URL, config.CELESTRAK_FALLBACK_URL]
+    urls_to_try = [url] if url else list(config.DEFAULT_TLE_URLS)
 
     last_error: Exception | None = None
     for target_url in urls_to_try:
@@ -173,7 +178,7 @@ def fetch_live_tle(
                 headers=headers,
             )
             response.raise_for_status()
-            return parse_tle_text(response.text)
+            return parse_tle_text(response.text, source_url=target_url)
         except requests.exceptions.Timeout:
             last_error = TleFetchError("the request timed out")
         except requests.exceptions.ConnectionError:
@@ -216,11 +221,39 @@ def read_cache(path: Path) -> tuple[TleRecord, datetime] | None:
         return None
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
-        tle = parse_tle_text(f"{payload['name']}\n{payload['line1']}\n{payload['line2']}")
+        source_url = payload.get("source_url", "")
+        tle = parse_tle_text(
+            f"{payload['name']}\n{payload['line1']}\n{payload['line2']}",
+            source_url=source_url,
+        )
         retrieved = ensure_utc(datetime.fromisoformat(payload["retrieved_at_utc"]))
     except (OSError, ValueError, KeyError, TypeError) as exc:
         raise TleParseError(f"cache file is unusable ({exc})") from exc
     return tle, retrieved
+
+
+def _provider_label(source_url: str) -> tuple[str, str]:
+    """Return (label, description) based on the TLE source URL."""
+    lowered = source_url.lower()
+    if "celestrak" in lowered:
+        return "CelesTrak GP data (live download)", "Fetched directly from CelesTrak."
+    if "wheretheiss" in lowered:
+        return "WhereTheISS.at (live mirror)", "Fetched from WhereTheISS.at live TLE mirror."
+    if "ariss" in lowered:
+        return "ARISS (live mirror)", "Fetched from ARISS live TLE mirror."
+    return "Live TLE download", f"Fetched from {source_url}."
+
+
+def _cached_provider_label(source_url: str) -> str:
+    """Return cache label based on the original TLE source URL."""
+    lowered = source_url.lower()
+    if "celestrak" in lowered:
+        return "CelesTrak (cached download)"
+    if "wheretheiss" in lowered:
+        return "WhereTheISS.at (cached download)"
+    if "ariss" in lowered:
+        return "ARISS (cached download)"
+    return "Cached download"
 
 
 # ------------------------------------------------------------------------ orchestrator
@@ -241,7 +274,6 @@ def get_orbital_data(
     """
     current = ensure_utc(now) if now else utcnow()
     cache_file = cache_path or config.CACHE_PATH
-    source_url = url or config.CELESTRAK_URL
     offline = offline or config.OFFLINE_ENV_FLAG
     warnings: list[str] = []
 
@@ -254,8 +286,9 @@ def get_orbital_data(
     if cached and not offline and not force_refresh:
         age_s = (current - cached[1]).total_seconds()
         if 0 <= age_s < config.CACHE_TTL_S:
+            cache_label = _cached_provider_label(cached[0].source_url)
             return _finish(
-                cached[0], DataSource.CACHED, cached[1], "CelesTrak (cached download)",
+                cached[0], DataSource.CACHED, cached[1], cache_label,
                 f"Using the download from {_age_text(age_s)} ago (not re-downloading "
                 "within the 2-hour courtesy window; press Refresh to force).",
                 warnings, current,
@@ -263,24 +296,27 @@ def get_orbital_data(
 
     if not offline:
         try:
-            tle = fetch_live_tle(source_url, http_get=http_get)
+            tle = fetch_live_tle(url, http_get=http_get)
         except (TleFetchError, TleParseError) as exc:
             warnings.append(f"Live download failed: {exc}.")
         else:
+            actual_url = tle.source_url or (url or config.CELESTRAK_URL)
             try:
-                write_cache(tle, current, source_url, cache_file)
+                write_cache(tle, current, actual_url, cache_file)
             except OSError as exc:
                 warnings.append(f"Could not write the local cache: {exc}.")
+            label, desc = _provider_label(actual_url)
             return _finish(
-                tle, DataSource.LIVE, current, "CelesTrak GP data (live download)",
-                "Fetched directly from CelesTrak.", warnings, current,
+                tle, DataSource.LIVE, current, label,
+                desc, warnings, current,
             )
 
     if cached:
         reason = "Offline mode" if offline else "Live download unavailable"
         age_s = (current - cached[1]).total_seconds()
+        cache_label = _cached_provider_label(cached[0].source_url)
         return _finish(
-            cached[0], DataSource.CACHED, cached[1], "CelesTrak (cached download)",
+            cached[0], DataSource.CACHED, cached[1], cache_label,
             f"{reason}: using the last successful download from {_age_text(age_s)} ago.",
             warnings, current,
         )

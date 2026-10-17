@@ -32,6 +32,7 @@ class TleRecord:
     line2: str
     catalog_number: int
     epoch_utc: datetime  # timezone-aware UTC
+    source_url: str = ""
 
 
 @dataclass(frozen=True)

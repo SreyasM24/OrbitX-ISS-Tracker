@@ -26,7 +26,21 @@ CELESTRAK_FALLBACK_URL = os.environ.get(
     "ORBITX_TLE_FALLBACK_URL",
     "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
 )
-HTTP_TIMEOUT_S = float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "15"))
+WHERETHEISS_TLE_URL = "https://api.wheretheiss.at/v1/satellites/25544/tles?format=text"
+ARISS_TLE_URL = "https://live.ariss.org/iss.txt"
+
+# Default candidate endpoints attempted in order when ORBITX_TLE_URL is not set.
+# If CelesTrak is rate-limiting or dropping cloud container IPs (AWS US-East),
+# failover to WhereTheISS or ARISS live mirrors ensures zero downtime.
+DEFAULT_TLE_URLS: tuple[str, ...] = (
+    CELESTRAK_URL,
+    CELESTRAK_FALLBACK_URL,
+    WHERETHEISS_TLE_URL,
+    ARISS_TLE_URL,
+)
+
+# Standard timeout per endpoint attempt in seconds.
+HTTP_TIMEOUT_S = float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "6"))
 USER_AGENT = "OrbitX-workshop/1.0 (educational; GITAM Aero Astro Club)"
 
 # CelesTrak refreshes ISS elements every few hours and asks clients not to poll
