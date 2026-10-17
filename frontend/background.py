@@ -23,8 +23,6 @@ from pathlib import Path
 
 import streamlit as st
 
-from backend import config
-
 FRONTEND_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = FRONTEND_DIR / "assets"  # your local video goes here (git-ignored)
 STATIC_DIR = FRONTEND_DIR / "static"  # generated copy that Streamlit serves (git-ignored)

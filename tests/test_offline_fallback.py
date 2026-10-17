@@ -1,13 +1,15 @@
 """Data-source honesty: live / cached / sample labelling with every HTTP call mocked."""
 
 from datetime import timedelta
+from unittest import mock
 
 import pytest
 import requests
 
 from conftest import FakeResponse
 from backend import tle_service as ts
-from backend.models import DataSource
+from backend.models import DataSource, Freshness, OrbitalData
+from frontend import components
 
 pytestmark = pytest.mark.usefixtures("no_network")
 
@@ -312,4 +314,128 @@ def test_probe_endpoint_parse_error():
     assert "validation error" in res["error"]
 
 
+def test_render_status_authoritative_app_version_regression(sample_tle):
+    """Regression test: render_status must render APP_VERSION without AttributeError."""
+    from backend.config import APP_VERSION
+    data = OrbitalData(
+        sample_tle, DataSource.SAMPLE, None, "Bundled sample",
+        "Bundled sample", (), diagnostics=(), cache_used=False,
+    )
+    calls = []
+    class DummyCol:
+        def markdown(self, text): calls.append(("markdown", text))
+        def write(self, text): calls.append(("write", text))
+        def success(self, text): calls.append(("success", text))
+        def warning(self, text): calls.append(("warning", text))
+        def error(self, text): calls.append(("error", text))
+        def info(self, text): calls.append(("info", text))
+
+    class DummyContainer:
+        def __enter__(self): return self
+        def __exit__(self, *a): pass
+
+    markdown_calls = []
+    def fake_markdown(text):
+        markdown_calls.append(text)
+
+    with mock.patch("streamlit.container", return_value=DummyContainer()), \
+         mock.patch("streamlit.expander", return_value=DummyContainer()), \
+         mock.patch("streamlit.columns", return_value=(DummyCol(), DummyCol(), DummyCol())), \
+         mock.patch("streamlit.caption"), \
+         mock.patch("streamlit.markdown", side_effect=fake_markdown), \
+         mock.patch("streamlit.warning"):
+        components.render_status(data, sample_tle, age_days=0.5, freshness=Freshness.FRESH)
+
+    version_markdown = [t for t in markdown_calls if "Application Version:" in t]
+    assert len(version_markdown) == 1
+    assert APP_VERSION in version_markdown[0]
+
+
+def test_failed_fetch_then_successful_fetch_recovers(tmp_path, sample_text, sample_tle):
+    """Verify that a failed fetch does not poison the state: subsequent live request succeeds."""
+    cache = tmp_path / "c.json"
+    now = sample_tle.epoch_utc + timedelta(hours=1)
+
+    # 1. First fetch fails
+    failed_data = ts.get_orbital_data(now=now, cache_path=cache, http_get=raise_connection_error)
+    assert failed_data.source is DataSource.SAMPLE
+
+    # 2. Network recovers
+    recovered_data = ts.get_orbital_data(
+        now=now + timedelta(seconds=10), cache_path=cache,
+        http_get=lambda *a, **k: FakeResponse(sample_text),
+    )
+    assert recovered_data.source is DataSource.LIVE
+    assert recovered_data.tle.catalog_number == 25544
+
+
+def test_csv_export_includes_provenance_column(sample_tle):
+    """Verify that track dataframe export includes data_source provenance."""
+    import pandas as pd
+    from frontend import tabs
+
+    track = pd.DataFrame({
+        "time_utc": ["2026-10-17 12:00:00 UTC"],
+        "latitude_deg": [15.5],
+        "longitude_deg": [45.2],
+        "altitude_km": [420.0],
+        "speed_km_s": [7.66],
+    })
+
+    captured_csv = []
+    def fake_download_button(label, data, file_name, mime):
+        captured_csv.append(data)
+
+    with mock.patch("streamlit.plotly_chart"), \
+         mock.patch("streamlit.caption"), \
+         mock.patch("streamlit.expander", return_value=mock.MagicMock()), \
+         mock.patch("streamlit.dataframe"), \
+         mock.patch("streamlit.download_button", side_effect=fake_download_button):
+        tabs.render_charts_tab(track, illustrative=False, source_label="LIVE")
+
+    assert len(captured_csv) == 1
+    assert "data_source" in captured_csv[0]
+    assert "LIVE" in captured_csv[0]
+
+
+def test_background_video_and_gradient_fallback():
+    """Verify background HTML helper renders gradient when None and video tags when provided."""
+    from frontend.background import background_html
+
+    # Fallback gradient when video is missing/None
+    gradient_only = background_html(None, with_script=False)
+    assert '<div class="orbitx-bg__shade"></div>' in gradient_only
+    assert '<video' not in gradient_only
+
+    # Full video layer when video name provided
+    video_html = background_html("test.mp4", with_script=False)
+    assert '<video' in video_html
+    assert "app/static/test.mp4" in video_html
+
+
+def test_all_production_modules_import_cleanly():
+    """Verify all project modules import cleanly without circular dependencies or missing attributes."""
+    import backend
+    import backend.config
+    import backend.diagnostics
+    import backend.formatting
+    import backend.missions
+    import backend.models
+    import backend.orbital_engine
+    import backend.pass_predictor
+    import backend.tle_service
+    import backend.validation
+    import frontend.background
+    import frontend.charts
+    import frontend.components
+    import frontend.data
+    import frontend.map_view
+    import frontend.sidebar
+    import frontend.tabs
+    import frontend.theme
+
+    assert backend.__version__ == "1.2.0"
+    assert backend.config.APP_VERSION == "v1.2.0"
+    assert hasattr(backend.models, "OrbitalData")
+    assert hasattr(backend.tle_service, "get_orbital_data")
 

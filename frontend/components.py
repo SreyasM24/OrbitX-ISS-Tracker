@@ -14,7 +14,7 @@ from backend.formatting import (
     format_longitude,
     format_utc,
 )
-from backend import config
+from backend.config import APP_VERSION
 from backend.models import DataSource, Freshness
 from backend.validation import utcnow
 
@@ -82,7 +82,7 @@ def render_status(data, tle, age_days: float, freshness: Freshness) -> None:
             st.caption(f"{data.status_message} (Demonstration mode: not tracking live orbit).")
 
         with st.expander("🔍 Network & Provenance Details", expanded=False):
-            st.markdown(f"**Application Version:** `{config.APP_VERSION}`")
+            st.markdown(f"**Application Version:** `{APP_VERSION}`")
             if getattr(data, "last_attempt_utc", None):
                 st.markdown(f"**Last Fetch Attempt (UTC):** `{format_utc(data.last_attempt_utc)}`")
             st.markdown(f"**Data Source Mode:** `{data.source.value.upper()}`")
@@ -127,6 +127,6 @@ def render_footer() -> None:
         '<div class="ox-footer">Orbital elements: CelesTrak, WhereTheISS & ARISS. Propagation: '
         "Skyfield + SGP4. Base map: © OpenStreetMap contributors. OrbitX is an educational "
         "tool; do not use it for navigation or safety-critical decisions.<br>"
-        f"Built for the <b>GITAM Aero Astro Club (GAAC)</b> OrbitX workshop. · <code>OrbitX {config.APP_VERSION}</code></div>",
+        f"Built for the <b>GITAM Aero Astro Club (GAAC)</b> OrbitX workshop. · <code>OrbitX {APP_VERSION}</code></div>",
         unsafe_allow_html=True,
     )

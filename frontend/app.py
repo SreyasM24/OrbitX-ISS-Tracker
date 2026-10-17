@@ -88,7 +88,7 @@ def render_live_dashboard() -> None:
     with tab_map:
         tabs.render_map_tab(position, track, observer, controls, illustrative)
     with tab_charts:
-        tabs.render_charts_tab(track, illustrative)
+        tabs.render_charts_tab(track, illustrative, data.source.value.upper())
     with tab_passes:
         tabs.render_passes_tab(tle, observer, start, controls)
     with tab_missions:

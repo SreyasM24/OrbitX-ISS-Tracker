@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import streamlit as st
 
-from backend import config
+from backend import config, tle_service
 from frontend.data import request_refresh
 
 CUSTOM_LOCATION = "Custom location"

@@ -36,7 +36,7 @@ def render_map_tab(position, track, observer, controls, illustrative: bool) -> N
         st.plotly_chart(track_figure(track, position, observer), width="stretch")
 
 
-def render_charts_tab(track, illustrative: bool = False) -> None:
+def render_charts_tab(track, illustrative: bool = False, source_label: str = "") -> None:
     st.plotly_chart(telemetry_figure(track), width="stretch")
     st.caption(
         "Predicted from the orbital elements, starting now. Longitude wraps at ±180°, so the "
@@ -45,7 +45,9 @@ def render_charts_tab(track, illustrative: bool = False) -> None:
     with st.expander("Show the numbers"):
         st.dataframe(track, hide_index=True, width="stretch")
         csv_filename = "orbitx_track_illustrative.csv" if illustrative else "orbitx_track.csv"
-        st.download_button("⬇ Download CSV", track.to_csv(index=False), csv_filename,
+        export_df = track.copy()
+        export_df["data_source"] = source_label or ("SAMPLE (illustrative)" if illustrative else "LIVE")
+        st.download_button("⬇ Download CSV", export_df.to_csv(index=False), csv_filename,
                            "text/csv")
 
 
