@@ -64,6 +64,7 @@ def probe_endpoint(
         result["phase"] = "success"
         result["catalog_number"] = record.catalog_number
         result["epoch_utc"] = record.epoch_utc.isoformat()
+        result["tle_record"] = record
         logger.info("Diagnostic probe succeeded for %s in %.3fs", name, result["elapsed_s"])
         return result
 

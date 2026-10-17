@@ -36,14 +36,14 @@ ARISS_TLE_URL = "https://live.ariss.org/iss.txt"
 # secondary CelesTrak stations feed on the same domain.
 DEFAULT_TLE_URLS: tuple[str, ...] = (
     CELESTRAK_URL,
-    WHERETHEISS_TLE_URL,
     ARISS_TLE_URL,
+    WHERETHEISS_TLE_URL,
     CELESTRAK_FALLBACK_URL,
 )
 
 # Standard timeout per endpoint attempt in seconds.
 # Bounded to avoid long UI blocking while allowing realistic HTTPS handshakes.
-HTTP_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "3.5")), 10.0)
+HTTP_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "5.0")), 15.0)
 USER_AGENT = "OrbitX-workshop/1.0 (educational; GITAM Aero Astro Club)"
 
 # CelesTrak refreshes ISS elements every few hours and asks clients not to poll

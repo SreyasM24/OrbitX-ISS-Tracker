@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
+from typing import Any
 
 
 class DataSource(str, Enum):
@@ -45,6 +46,9 @@ class OrbitalData:
     source_label: str
     status_message: str
     warnings: tuple[str, ...] = field(default_factory=tuple)
+    diagnostics: tuple[dict[str, Any], ...] = field(default_factory=tuple)
+    cache_used: bool = False
+    last_attempt_utc: datetime | None = None
 
 
 @dataclass(frozen=True)

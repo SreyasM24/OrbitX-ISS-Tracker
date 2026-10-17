@@ -15,6 +15,7 @@ import time
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Any
 
 import requests
 
@@ -183,6 +184,7 @@ def fetch_live_tle(
     url: str | None = None,
     timeout_s: float | None = None,
     http_get: Callable[..., requests.Response] | None = None,
+    out_diagnostics: list[dict[str, Any]] | None = None,
 ) -> TleRecord:
     """Download and validate the ISS TLE. Raises TleFetchError or TleParseError."""
     getter = http_get or requests.get
@@ -197,6 +199,15 @@ def fetch_live_tle(
     for target_url in urls_to_try:
         endpoint_name = _endpoint_display_name(target_url)
         start_time = time.monotonic()
+        diag_entry: dict[str, Any] = {
+            "endpoint": endpoint_name,
+            "url": target_url,
+            "timeout_s": timeout,
+            "elapsed_s": 0.0,
+            "status_code": None,
+            "phase": "networking",
+            "error": None,
+        }
         try:
             logger.info("Attempting TLE fetch from %s (timeout=%.1fs)", endpoint_name, timeout)
             response = getter(
@@ -205,8 +216,12 @@ def fetch_live_tle(
                 headers=headers,
             )
             elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["status_code"] = response.status_code
             response.raise_for_status()
+            diag_entry["phase"] = "response_parsing"
             record = parse_tle_text(response.text, source_url=target_url)
+            diag_entry["phase"] = "success"
             logger.info(
                 "Successfully fetched TLE from %s in %.2fs (NORAD %d, epoch %s)",
                 endpoint_name,
@@ -214,15 +229,27 @@ def fetch_live_tle(
                 record.catalog_number,
                 record.epoch_utc.isoformat(),
             )
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
             return record
         except requests.exceptions.Timeout:
             elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["phase"] = "networking"
+            diag_entry["error"] = f"Request timed out after {elapsed:.2f}s"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
             msg = f"{endpoint_name}: the request timed out (after {elapsed:.1f}s)"
             logger.warning("TLE fetch timeout on %s after %.2fs", endpoint_name, elapsed)
             attempt_errors.append(msg)
             last_error = TleFetchError("the request timed out")
         except requests.exceptions.ConnectionError as exc:
             elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["phase"] = "networking"
+            diag_entry["error"] = f"Connection error ({type(exc).__name__})"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
             msg = f"{endpoint_name}: no network connection"
             logger.warning("TLE connection error on %s: %s", endpoint_name, exc)
             attempt_errors.append(msg)
@@ -230,18 +257,34 @@ def fetch_live_tle(
         except requests.exceptions.HTTPError as exc:
             elapsed = time.monotonic() - start_time
             status = getattr(exc.response, "status_code", "unknown")
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["status_code"] = status if isinstance(status, int) else None
+            diag_entry["phase"] = "networking"
+            diag_entry["error"] = f"HTTP {status}"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
             msg = f"{endpoint_name}: the server returned HTTP {status}"
             logger.warning("TLE HTTP error on %s: %s", endpoint_name, msg)
             attempt_errors.append(msg)
             last_error = TleFetchError(f"the server returned HTTP {status}")
         except requests.exceptions.RequestException as exc:
             elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["phase"] = "networking"
+            diag_entry["error"] = f"Request error ({type(exc).__name__})"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
             msg = f"{endpoint_name}: request failed ({type(exc).__name__})"
             logger.warning("TLE request exception on %s: %s", endpoint_name, exc)
             attempt_errors.append(msg)
             last_error = TleFetchError(f"request failed ({type(exc).__name__})")
         except TleParseError as exc:
             elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["phase"] = "validation"
+            diag_entry["error"] = f"Parse/validation error: {exc}"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
             msg = f"{endpoint_name}: {exc}"
             logger.warning("TLE parse error on %s: %s", endpoint_name, exc)
             attempt_errors.append(msg)
@@ -342,6 +385,8 @@ def get_orbital_data(
     except TleParseError as exc:
         warnings.append(f"Ignoring local cache: {exc}.")
 
+    diagnostics_log: list[dict[str, Any]] = []
+
     if cached and not offline and not force_refresh:
         age_s = (current - cached[1]).total_seconds()
         if 0 <= age_s < config.CACHE_TTL_S:
@@ -351,11 +396,14 @@ def get_orbital_data(
                 f"Using the download from {_age_text(age_s)} ago (not re-downloading "
                 "within the 2-hour courtesy window; press Refresh to force).",
                 warnings, current,
+                diagnostics=tuple(diagnostics_log),
+                cache_used=True,
+                last_attempt_utc=current,
             )
 
     if not offline:
         try:
-            tle = fetch_live_tle(url, http_get=http_get)
+            tle = fetch_live_tle(url, http_get=http_get, out_diagnostics=diagnostics_log)
         except (TleFetchError, TleParseError) as exc:
             warnings.append(f"Live download failed: {exc}.")
         else:
@@ -368,6 +416,9 @@ def get_orbital_data(
             return _finish(
                 tle, DataSource.LIVE, current, label,
                 desc, warnings, current,
+                diagnostics=tuple(diagnostics_log),
+                cache_used=False,
+                last_attempt_utc=current,
             )
 
     if cached:
@@ -378,6 +429,9 @@ def get_orbital_data(
             cached[0], DataSource.CACHED, cached[1], cache_label,
             f"{reason}: using the last successful download from {_age_text(age_s)} ago.",
             warnings, current,
+            diagnostics=tuple(diagnostics_log),
+            cache_used=True,
+            last_attempt_utc=current,
         )
 
     sample = load_sample_tle(sample_path)
@@ -386,6 +440,9 @@ def get_orbital_data(
         sample, DataSource.SAMPLE, None, "Bundled sample (data/sample_iss.tle)",
         f"{reason}: using the bundled sample. This is NOT live tracking.",
         warnings, current,
+        diagnostics=tuple(diagnostics_log),
+        cache_used=False,
+        last_attempt_utc=current,
     )
 
 
@@ -397,12 +454,25 @@ def _finish(
     message: str,
     warnings: list[str],
     now: datetime,
+    diagnostics: tuple[dict[str, Any], ...] = (),
+    cache_used: bool = False,
+    last_attempt_utc: datetime | None = None,
 ) -> OrbitalData:
     notes = list(warnings)
     stale = freshness_warning(tle, now)
     if stale:
         notes.append(stale)
-    return OrbitalData(tle, source, retrieved, label, message, tuple(notes))
+    return OrbitalData(
+        tle,
+        source,
+        retrieved,
+        label,
+        message,
+        tuple(notes),
+        diagnostics=diagnostics,
+        cache_used=cache_used,
+        last_attempt_utc=last_attempt_utc,
+    )
 
 
 def _age_text(seconds: float) -> str:

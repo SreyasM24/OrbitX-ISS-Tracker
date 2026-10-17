@@ -162,7 +162,7 @@ def test_multi_satellite_tle_finds_iss_among_others(sample_text):
     assert "ISS" in tle.name
 
 
-def test_celestrak_block_falls_back_to_wheretheiss_mirror(tmp_path, sample_text):
+def test_celestrak_block_falls_back_to_secondary_mirror(tmp_path, sample_text):
     calls = []
 
     def mock_getter(target_url, **kwargs):
@@ -173,8 +173,23 @@ def test_celestrak_block_falls_back_to_wheretheiss_mirror(tmp_path, sample_text)
 
     data = ts.get_orbital_data(cache_path=tmp_path / "c.json", http_get=mock_getter)
     assert data.source is DataSource.LIVE
-    assert "WhereTheISS.at" in data.source_label
+    assert "ARISS" in data.source_label or "WhereTheISS.at" in data.source_label
     assert len(calls) == 2
+
+
+def test_celestrak_and_ariss_fail_falls_back_to_wheretheiss(tmp_path, sample_text):
+    calls = []
+
+    def mock_getter(target_url, **kwargs):
+        calls.append(target_url)
+        if "celestrak" in target_url or "ariss" in target_url:
+            raise requests.exceptions.Timeout("blocked in cloud")
+        return FakeResponse(sample_text)
+
+    data = ts.get_orbital_data(cache_path=tmp_path / "c.json", http_get=mock_getter)
+    assert data.source is DataSource.LIVE
+    assert "WhereTheISS.at" in data.source_label
+    assert len(calls) == 3
 
 
 def test_cache_preserves_source_url_and_displays_cached_mirror_label(tmp_path, sample_text, sample_tle):
@@ -259,8 +274,10 @@ def test_sample_freshness_status_does_not_display_green_fresh(sample_tle):
         def __exit__(self, *a): pass
 
     with mock.patch("streamlit.container", return_value=DummyContainer()), \
+         mock.patch("streamlit.expander", return_value=DummyContainer()), \
          mock.patch("streamlit.columns", return_value=(DummyCol(), DummyCol(), DummyCol())), \
          mock.patch("streamlit.caption"), \
+         mock.patch("streamlit.markdown"), \
          mock.patch("streamlit.warning"):
         components.render_status(data, sample_tle, age_days=0.5, freshness=Freshness.FRESH)
 

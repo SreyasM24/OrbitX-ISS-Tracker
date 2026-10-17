@@ -80,6 +80,29 @@ def render_status(data, tle, age_days: float, freshness: Freshness) -> None:
             st.caption(f"Downloaded {format_utc(data.retrieved_at_utc)} · {data.status_message}")
         else:
             st.caption(f"{data.status_message} (Demonstration mode: not tracking live orbit).")
+
+        with st.expander("🔍 Network & Provenance Details", expanded=False):
+            st.markdown(f"**Application Version:** `{config.APP_VERSION}`")
+            if getattr(data, "last_attempt_utc", None):
+                st.markdown(f"**Last Fetch Attempt (UTC):** `{format_utc(data.last_attempt_utc)}`")
+            st.markdown(f"**Data Source Mode:** `{data.source.value.upper()}`")
+            st.markdown(f"**Local Cache Active:** `{'Yes' if getattr(data, 'cache_used', False) else 'No'}`")
+            st.markdown(f"**Element Epoch:** `{format_utc(tle.epoch_utc)}` ({format_age(age_days)} old)")
+            if data.retrieved_at_utc:
+                st.markdown(f"**Retrieved At (UTC):** `{format_utc(data.retrieved_at_utc)}`")
+            diagnostics = getattr(data, "diagnostics", ())
+            if diagnostics:
+                st.markdown("**Endpoint Probe History (Most Recent Run):**")
+                for d in diagnostics:
+                    ep = d.get("endpoint", "Endpoint")
+                    el = d.get("elapsed_s", 0.0)
+                    ph = d.get("phase", "")
+                    code = d.get("status_code")
+                    err = d.get("error", "")
+                    if ph == "success":
+                        st.markdown(f"- ✅ **{ep}**: Success in {el}s (HTTP {code or 200})")
+                    else:
+                        st.markdown(f"- ❌ **{ep}**: Failed in {el}s [{ph}] ({err or ('HTTP ' + str(code))})")
     for note in data.warnings:
         st.warning(note)
 
