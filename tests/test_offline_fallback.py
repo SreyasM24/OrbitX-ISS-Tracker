@@ -130,3 +130,33 @@ def test_naive_now_is_rejected(tmp_path):
 
     with pytest.raises(ValidationError):
         ts.get_orbital_data(offline=True, now=datetime(2026, 10, 21), cache_path=tmp_path / "c.json")
+
+
+def test_primary_url_timeout_falls_back_to_secondary_and_succeeds(tmp_path, sample_text):
+    calls = []
+
+    def mock_getter(target_url, **kwargs):
+        calls.append(target_url)
+        if len(calls) == 1:
+            raise requests.exceptions.Timeout("primary timed out")
+        return FakeResponse(sample_text)
+
+    tle = ts.fetch_live_tle(http_get=mock_getter)
+    assert tle.catalog_number == 25544
+    assert len(calls) == 2
+
+
+def test_multi_satellite_tle_finds_iss_among_others(sample_text):
+    # Valid line checksums for a multi-satellite feed fixture:
+    # 48274 checksums:
+    # Line 1: '1 48274U 21035A   24001.50000000  .00010000  00000-0  10000-3 0  9997'
+    # Line 2: '2 48274  41.4700 100.0000 0005000 120.0000 240.0000 15.60000000100009'
+    other = (
+        "CSS (TIANHE)\n"
+        "1 48274U 21035A   24001.50000000  .00010000  00000-0  10000-3 0  9997\n"
+        "2 48274  41.4700 100.0000 0005000 120.0000 240.0000 15.60000000100009\n"
+    )
+    combined = f"{other}\n{sample_text}"
+    tle = ts.parse_tle_text(combined)
+    assert tle.catalog_number == 25544
+    assert "ISS" in tle.name

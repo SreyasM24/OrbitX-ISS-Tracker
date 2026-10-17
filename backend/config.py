@@ -22,7 +22,11 @@ CELESTRAK_URL = os.environ.get(
     "ORBITX_TLE_URL",
     f"https://celestrak.org/NORAD/elements/gp.php?CATNR={ISS_NORAD_ID}&FORMAT=TLE",
 )
-HTTP_TIMEOUT_S = float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "8"))
+CELESTRAK_FALLBACK_URL = os.environ.get(
+    "ORBITX_TLE_FALLBACK_URL",
+    "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle",
+)
+HTTP_TIMEOUT_S = float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "15"))
 USER_AGENT = "OrbitX-workshop/1.0 (educational; GITAM Aero Astro Club)"
 
 # CelesTrak refreshes ISS elements every few hours and asks clients not to poll

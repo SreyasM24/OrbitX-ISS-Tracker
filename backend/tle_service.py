@@ -54,16 +54,26 @@ def parse_tle_text(text: str, expected_catalog_number: int = config.ISS_NORAD_ID
         for raw in (text or "").splitlines()
         if raw.strip() and not raw.lstrip().startswith("#")
     ]
+    candidate_pair: tuple[int, str, str] | None = None
     for index in range(len(lines) - 1):
         if lines[index].startswith("1 ") and lines[index + 1].startswith("2 "):
-            line1, line2 = lines[index], lines[index + 1]
-            name = lines[index - 1].strip() if index > 0 else ""
-            break
-    else:
+            l1, l2 = lines[index], lines[index + 1]
+            try:
+                cat1 = int(l1[2:7])
+            except ValueError:
+                continue
+            if cat1 == expected_catalog_number:
+                candidate_pair = (index, l1, l2)
+                break
+            elif candidate_pair is None:
+                candidate_pair = (index, l1, l2)
+
+    if candidate_pair is None:
         snippet = (text or "").strip().splitlines()[:1]
         hint = f" Server said: {snippet[0][:80]!r}." if snippet else ""
         raise TleParseError(f"No two-line element set found in the data.{hint}")
 
+    index, line1, line2 = candidate_pair
     for number, line in ((1, line1), (2, line2)):
         if len(line) != 69:
             raise TleParseError(f"TLE line {number} must be 69 characters, got {len(line)}.")
@@ -80,6 +90,12 @@ def parse_tle_text(text: str, expected_catalog_number: int = config.ISS_NORAD_ID
         raise TleParseError(
             f"Expected NORAD {expected_catalog_number} but the data is for NORAD {catalog_1}."
         )
+
+    name = (
+        lines[index - 1].strip()
+        if index > 0 and not lines[index - 1].startswith(("1 ", "2 "))
+        else ""
+    )
     if name and not any(hint in name.upper() for hint in config.ISS_NAME_HINTS):
         raise TleParseError(f"Name {name!r} does not look like the ISS.")
 
@@ -142,24 +158,37 @@ def fetch_live_tle(
 ) -> TleRecord:
     """Download and validate the ISS TLE. Raises TleFetchError or TleParseError."""
     getter = http_get or requests.get
-    try:
-        response = getter(
-            url or config.CELESTRAK_URL,
-            timeout=timeout_s or config.HTTP_TIMEOUT_S,
-            headers={"User-Agent": config.USER_AGENT},
-        )
-        response.raise_for_status()
-        body = response.text
-    except requests.exceptions.Timeout:
-        raise TleFetchError("the request timed out") from None
-    except requests.exceptions.ConnectionError:
-        raise TleFetchError("no network connection") from None
-    except requests.exceptions.HTTPError as exc:
-        status = getattr(exc.response, "status_code", "unknown")
-        raise TleFetchError(f"the server returned HTTP {status}") from None
-    except requests.exceptions.RequestException as exc:
-        raise TleFetchError(f"request failed ({type(exc).__name__})") from None
-    return parse_tle_text(body)
+    timeout = timeout_s or config.HTTP_TIMEOUT_S
+    headers = {"User-Agent": config.USER_AGENT}
+
+    # If an explicit URL was provided (custom override or test fixture), use only that URL.
+    urls_to_try = [url] if url else [config.CELESTRAK_URL, config.CELESTRAK_FALLBACK_URL]
+
+    last_error: Exception | None = None
+    for target_url in urls_to_try:
+        try:
+            response = getter(
+                target_url,
+                timeout=timeout,
+                headers=headers,
+            )
+            response.raise_for_status()
+            return parse_tle_text(response.text)
+        except requests.exceptions.Timeout:
+            last_error = TleFetchError("the request timed out")
+        except requests.exceptions.ConnectionError:
+            last_error = TleFetchError("no network connection")
+        except requests.exceptions.HTTPError as exc:
+            status = getattr(exc.response, "status_code", "unknown")
+            last_error = TleFetchError(f"the server returned HTTP {status}")
+        except requests.exceptions.RequestException as exc:
+            last_error = TleFetchError(f"request failed ({type(exc).__name__})")
+        except TleParseError as exc:
+            last_error = exc
+
+    if last_error is not None:
+        raise last_error
+    raise TleFetchError("no data received")
 
 
 # ---------------------------------------------------------------------------- cache

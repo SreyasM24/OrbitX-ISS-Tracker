@@ -44,17 +44,15 @@ def sync_video(source: Path | None = None, static_dir: Path | None = None) -> st
     src = Path(source) if source is not None else BACKGROUND_VIDEO_PATH
     dest_dir = Path(static_dir) if static_dir is not None else STATIC_DIR
     try:
+        dest_filename = src.name if src is not None else "iss-background.mp4"
+        dest = dest_dir / dest_filename
+        if dest.is_file() and dest.stat().st_size > 0:
+            return dest.name
+
         if not src.is_file() or src.stat().st_size == 0:
             return None
-        dest = dest_dir / src.name
-        info = src.stat()
-        if not (
-            dest.is_file()
-            and dest.stat().st_size == info.st_size
-            and int(dest.stat().st_mtime) == int(info.st_mtime)
-        ):
-            dest_dir.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(src, dest)
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
     except OSError:
         return None
     return src.name

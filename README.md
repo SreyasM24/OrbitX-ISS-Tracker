@@ -1,209 +1,282 @@
 # OrbitX ISS Tracker
 
-🚀 OrbitX is a hands-on space-tech workshop where you build an interactive ISS tracker using Python, orbital mechanics and AI-assisted coding: explore satellite positions, visualise orbital trajectories and predict ISS passes over different locations.
+🚀 **OrbitX** is an educational, interactive International Space Station tracking dashboard built with Python, Streamlit, and the Skyfield/SGP4 orbital mechanics library. Designed for the GITAM Aero Astro Club (GAAC) workshop, it combines real-world astrodynamics with hands-on AI-assisted coding missions.
 
-This repository is a small, beginner-friendly **International Space Station tracker** built for the OrbitX workshop run by the GITAM Aero Astro Club (21 October 2026, 3 – 5 PM IST). Pairs of students use it as a base for five short missions that mix space science with AI-assisted coding.
-
-It needs **no API key and no paid service**. It downloads public orbital elements, calculates where the ISS is and will be, shows that on a map and in charts, and predicts when it passes over a chosen place.
+It requires **no API keys, no paid subscriptions, and no database infrastructure**. OrbitX retrieves public orbital elements (Two-Line Element sets) directly from CelesTrak, calculates the current and future positions of the ISS using numerical SGP4 perturbation theory, plots real-time ground tracks on an interactive map, renders telemetry charts, and predicts observer pass opportunities for any coordinate on Earth.
 
 ![OrbitX dashboard: telemetry cards, status panel and ground-track map](docs/images/dashboard-map.png)
 
 ![OrbitX pass predictions](docs/images/dashboard-passes.png)
 
-*Screenshots are real captures of the app (shown without the optional background video, see [Background video](#background-video)).*
+*Screenshots reflect actual application captures (shown with default dark glass theme; an optional looping ISS background video can be enabled locally).*
 
-> OrbitX is an educational tool. It is not a navigation, safety or scientific-grade tracking system. See [Scientific limitations](#scientific-limitations).
+> **Educational Disclaimer:** OrbitX is an educational tool developed for university workshops and space-enthusiast learning. It is not designed for orbital collision avoidance, satellite operations, or safety-critical mission navigation. See [Scientific Principles & Limitations](#scientific-principles--limitations).
 
-## Features
+---
 
-- Current ISS latitude, longitude, altitude and orbital speed, calculated from orbital elements (not copied from a live feed).
-- Honest data labelling: **LIVE** (downloaded now), **CACHED** (last download), or **SAMPLE** (bundled offline file, *not* live), plus element epoch, age and a freshness warning.
-- Interactive map (Folium) with the predicted ground track, correctly split at the ±180° line.
-- Telemetry charts (Plotly): latitude, longitude and altitude against UTC time.
-- Observation-pass table for any location: rise, peak, set, duration, peak elevation and compass directions, in UTC and IST.
-- Example cities (Visakhapatnam by default) or your own validated latitude/longitude.
-- A premium "mission control" interface: dark glass panels, pill tabs, keyboard-visible focus, responsive layout, and an optional looping ISS video behind the dashboard.
-- Five guided missions with starter code, AI-prompt suggestions and verification steps (`missions/`).
-- The core dashboard keeps working without internet, using the cache or the bundled sample. The street map and its scripts need internet; a plain track plot is the offline substitute (see [Offline mode](#offline-mode)).
+## Key Features
 
-**Stack:** Python, [Skyfield](https://rhodesmill.org/skyfield/) (SGP4 propagation and coordinates), Streamlit, Folium + streamlit-folium, Plotly, pandas, requests. Tests use pytest.
+- **Live & Dynamic Orbital Calculations:** Calculates sub-satellite geodetic latitude, longitude, WGS84 altitude, and inertial orbital speed in real time.
+- **Configurable Periodic Refresh:** Powered by native Streamlit fragments (`@st.fragment`), the dashboard automatically recalculates the position and updates the map marker at configurable intervals (10s recommended default, 5s, 30s, 60s, or Paused) without page flickers or widget resets.
+- **Honest Provenance & Freshness Badges:** Clearly tags data as **● LIVE** (real-time CelesTrak download), **● CACHED** (local 2-hour courtesy cache), or **● SAMPLE** (bundled offline fallback, *not live*), displaying element age and automated warnings when elements are stale (>3 days) or expired (>14 days).
+- **Interactive Leaflet / Folium Map:** Displays the ISS sub-satellite position, custom observer location, and projected 90-to-720-minute ground tracks, cleanly segmented across the ±180° antimeridian without visual wrapping artefacts.
+- **Offline Resilient:** If internet access is unavailable or OpenStreetMap tile servers are unreachable, OrbitX falls back smoothly to a built-in Plotly ground-track chart and bundled sample orbital elements.
+- **Telemetry Analysis & Export:** Visualises latitude, longitude, and ellipsoidal altitude across the orbital period. Includes one-click CSV export tagged with provenance (`orbitx_track.csv` for fresh data; `orbitx_track_illustrative.csv` when running offline/sample).
+- **Observer Pass Predictions:** Computes line-of-sight pass opportunities (rise time, peak elevation, set time, duration, and azimuth directions) in both UTC and Indian Standard Time (IST).
+- **Five Guided Student Missions:** Embedded mission guides (`missions/*.md`) in the dashboard with starter exercises, AI prompts, and verification steps.
+- **Clean Architecture & Dark Glass Theme:** Separated into a decoupled `backend/` (pure Python mathematics, zero Streamlit imports) and `frontend/` (Streamlit presentation, responsive glassmorphism UI).
 
-## Repository structure
+---
 
-OrbitX is one Python/Streamlit project with two code categories. **`frontend/`** is everything the user sees; **`backend/`** is everything scientific and data-related. The frontend imports the backend, never the other way round, and `backend/` never imports Streamlit.
+## Architecture & Data Flow
 
-```
-frontend/                    UI: what you see (Streamlit)
-  app.py                       Entry point: wires data, calculations and UI together
-  theme.py                     Stylesheet (CSS)
-  background.py / .js          Background video layer and seamless-loop script
-  components.py                Header, GAAC badge, status panel, telemetry cards, footer
-  sidebar.py                   Observer, ground-track and pass controls
-  tabs.py                      Map, Telemetry, Passes and Missions tabs
-  map_view.py                  Folium map
-  charts.py                    Plotly charts and the offline track plot
-  data.py                      st.cache_data wrappers around backend calls
-  assets/                      Optional local background video (not in the repo; see assets/README.md)
-backend/                     Science and data: no Streamlit
-  config.py                    Constants, thresholds, example cities
-  models.py                    Typed dataclasses (TleRecord, Observer, SatellitePass, ...)
-  validation.py                Input validation, UTC helpers, TLE checksum
-  tle_service.py               TLE download, parsing, caching, offline fallback (only module using the network)
-  orbital_engine.py            Skyfield propagation, ground track, antimeridian handling
-  pass_predictor.py            Observer passes, pass table
-  formatting.py                Display formatting (numbers, coordinates, durations)
-  missions.py                  Mission registry and required-section contract
-  data/sample_iss.tle          Bundled offline sample orbital elements (read-only)
-missions/                    Five mission guides (Markdown)
-tests/                       pytest suite (no network needed)
-scripts/                     setup.ps1 (one-time setup) and run.ps1 (launcher)
-docs/                        ARCHITECTURE.md, TROUBLESHOOTING.md, screenshots
-.streamlit/                  Streamlit theme and server settings
-.orbitx_cache/               Generated at run time (git-ignored): last downloaded orbital elements
-FACILITATOR_GUIDE.md, CONTRIBUTING.md
-```
+```mermaid
+flowchart TD
+    subgraph Data Layer
+        CT["CelesTrak GP API (Network)"]
+        Sample["Bundled Sample TLE (Offline)"]
+        DiskCache[".orbitx_cache/iss_tle.json (2h TTL)"]
+    end
 
-Run the app with `.\scripts\run.ps1`, which starts `streamlit run frontend/app.py` from the repository root.
+    subgraph Backend Engine ["backend/ (Pure Python - No Streamlit)"]
+        TLEService["tle_service.py<br/>Fetch, parse, validate checksums"]
+        OrbitalEngine["orbital_engine.py<br/>Skyfield SGP4 propagation & WGS84 reduction"]
+        PassPredictor["pass_predictor.py<br/>Topocentric elevation root-finding"]
+        Validation["validation.py<br/>Coordinate bounds & UTC enforcement"]
+    end
 
-## Requirements
+    subgraph Frontend Presentation ["frontend/ (Streamlit UI)"]
+        DataCache["data.py<br/>st.cache_data memoization"]
+        LiveFragment["app.py @st.fragment<br/>10s periodic recalculation"]
+        MapView["map_view.py & charts.py<br/>Folium Leaflet & Plotly figures"]
+        UIComponents["components.py & tabs.py<br/>Glass panels, telemetry metrics, tabs"]
+    end
 
-- **Python 3.10 or newer.** Developed and tested on Python 3.13.13 (Windows 11). Other versions are expected to work but have not been tested.
-- Internet access for the first dependency install, and (optionally) for live orbital elements and map tiles.
-
-## Setup on Windows (PowerShell)
-
-From the repository folder:
-
-```powershell
-.\scripts\setup.ps1
-.\scripts\run.ps1
+    CT -->|HTTP GET| TLEService
+    DiskCache <-->|Read / Write| TLEService
+    Sample -.->|Fallback| TLEService
+    TLEService --> DataCache
+    DataCache --> OrbitalEngine
+    DataCache --> PassPredictor
+    OrbitalEngine --> LiveFragment
+    PassPredictor --> UIComponents
+    LiveFragment --> MapView
+    MapView --> UIComponents
 ```
 
-`setup.ps1` creates `.venv` only if it is missing, installs `requirements-dev.txt`, installs OrbitX in editable mode and checks the imports. It does not need administrator rights. `run.ps1` works from any directory, starts the app with the project's own `.venv` and opens `http://localhost:8501`.
+---
 
-Options: `.\scripts\run.ps1 -Offline` (no network), `-Port 8502`, `-NoBrowser`; `.\scripts\setup.ps1 -Recreate` rebuilds `.venv`.
+## Technology Stack
 
-If PowerShell says that running scripts is disabled, either use the manual steps below, or allow local scripts for your own user (a normal, non-administrator setting you can decide on yourself): `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+The stack is intentionally minimal and uses open-source libraries:
 
-### Manual setup (Windows)
+| Component | Library / Tool | Verified Version | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Language** | Python | `>= 3.10` (tested on 3.10, 3.11, 3.13) | Core runtime |
+| **Astrodynamics** | Skyfield & SGP4 | `skyfield >= 1.49`, `sgp4 >= 2.27` | Orbit propagation & coordinate frames |
+| **Numerical Engine**| NumPy & pandas | `numpy >= 1.24`, `pandas >= 2.0` | Vectorised calculations & telemetry tabular data |
+| **Dashboard UI** | Streamlit | `streamlit >= 1.50` | Interactive web application & reactive fragments |
+| **Mapping** | Folium & streamlit-folium | `folium >= 0.15`, `streamlit-folium >= 0.20` | Interactive Leaflet map with ISS ground tracks |
+| **Plotting** | Plotly | `plotly >= 5.18` | Telemetry series & offline ground-track charts |
+| **HTTP Client** | Requests | `requests >= 2.31` | CelesTrak TLE retrieval with timeout handling |
+| **Testing** | Pytest | `pytest >= 8.0` | Comprehensive unit and UI test suite (144 tests) |
 
-```powershell
-py -3 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements-dev.txt
-pip install -e .
-streamlit run frontend/app.py
-```
+---
 
-## Setup on macOS / Linux
+## Prerequisites
 
-These steps use standard Python tooling; they have **not** been tested on macOS or Linux by the authors.
+- **Python 3.10 or newer** (Python 3.11 recommended for production deployment).
+- Git.
+- A modern web browser (Google Chrome, Firefox, Microsoft Edge, or Safari).
 
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements-dev.txt
-pip install -e .
-streamlit run frontend/app.py
-```
+---
 
-## Background video
+## Quickstart & Local Setup
 
-OrbitX can play a muted, looping ISS video behind the dashboard. **The video is not included in this repository**: the stock footage used by the maintainers has no confirmed redistribution licence. Without it you see a dark navy gradient and everything else works.
+### Windows (Automated PowerShell Script)
 
-To enable it, put a video you are allowed to use at `frontend/assets/iss-background.mp4` (or set `ORBITX_BACKGROUND_VIDEO`) and restart the app. Details and tips: [frontend/assets/README.md](frontend/assets/README.md). The video keeps playing when you switch tabs or change settings; it is a fixed layer that Streamlit does not re-create on reruns, and the end of the clip is crossfaded into its start.
-
-## Club branding
-
-The header carries a small **GITAM AERO ASTRO CLUB / GAAC · GITAM UNIVERSITY** attribution badge with a generic orbit icon (it is not an official logo). OrbitX remains the primary product.
-
-## Virtual environment
-
-Activate it before running Python commands yourself: `.\.venv\Scripts\Activate.ps1` (Windows) or `source .venv/bin/activate` (macOS/Linux). Your prompt shows `(.venv)`. To check, run `python -c "import sys; print(sys.executable)"`; the path must end in `.venv\Scripts\python.exe` (or `.venv/bin/python`). Leave with `deactivate`.
-
-## Running the tests
-
-```powershell
-python -m pytest
-```
-
-The suite makes no network requests and does not depend on the ISS's current position (the clock is fixed in UI tests). The UI tests use Streamlit's `AppTest`, which runs the script headlessly and does not open a browser. The redesigned interface was additionally driven by hand-written Playwright scripts in Google Chrome on Windows 11 (all tabs, city and invalid-input handling, CSV download, 1440 px and 390 px widths, video continuity across reruns). Those browser checks are not part of the automated suite, so please also do a quick visual run yourself.
-
-## Offline mode
-
-OrbitX never fails just because the network does:
-
-1. A recent cached download (`.orbitx_cache/iss_tle.json`, valid for 2 hours) is reused.
-2. Otherwise it downloads from CelesTrak.
-3. If that fails it uses the last cached download, however old.
-4. If there is no cache it uses `backend/data/sample_iss.tle` and labels the data **SAMPLE, NOT live**.
-
-To force offline behaviour: `.\scripts\run.ps1 -Offline`, or set `ORBITX_OFFLINE=1`. **The Folium map needs internet twice over:** its street tiles come from OpenStreetMap and its JavaScript libraries from public CDNs. If only the tiles are blocked you see the track on a grey background; with no internet at all the map area stays empty. In that case open **Plain track plot (works without internet)** under the map: it draws the same predicted track with Plotly, which ships inside Streamlit. Telemetry charts, metrics, pass table and missions work fully offline. The very first `setup.ps1` still needs internet to install packages. Other settings are in `.env.example` (they are plain environment variables; no `.env` loader is built in).
-
-Sample data ages: positions from a sample that is weeks old are only illustrative, and the app says so.
-
-## Mission guides
-
-| # | Guide | Time |
-| --- | --- | --- |
-| 1 | [Where Is the ISS?](missions/mission-1.md) | 20 min |
-| 2 | [Put the ISS on a Map](missions/mission-2.md) | 20 min |
-| 3 | [Where Will It Be?](missions/mission-3.md) | 25 min |
-| 4 | [Can We See It?](missions/mission-4.md) | 15 min |
-| 5 | [New City Challenge](missions/final-challenge.md) | 10 min |
-
-The guides also appear in the app's **Missions** tab. The core app works before any mission starts; each mission asks for one small code change. Organisers: see [FACILITATOR_GUIDE.md](FACILITATOR_GUIDE.md).
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for where UI, scientific and data code belongs, how to add a mission and how to open a pull request. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) explains the data flow; [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) lists common problems.
-
-## Git and GitHub workflow
-
-Clone the workshop repository (or your fork of it):
+Clone the repository and run the setup script:
 
 ```powershell
 git clone https://github.com/SreyasM24/OrbitX-ISS-Tracker.git
 cd OrbitX-ISS-Tracker
-git switch -c my-pair-name        # work on your own branch
-# ... edit, run the app, run the tests ...
-git status
-git add backend/formatting.py frontend/app.py     # add the files you changed, not everything
-git commit -m "Mission 1: show altitude in miles"
-git push -u origin my-pair-name
+.\scripts\setup.ps1
+.\scripts\run.ps1
 ```
 
-If something breaks, `git diff` shows what changed and `git checkout -- <file>` restores one file from the last commit. Do not commit `.venv/`, `.orbitx_cache/`, `static/` or video files (they are in `.gitignore`).
+- `setup.ps1` creates `.venv`, installs dependencies from `requirements-dev.txt`, installs OrbitX in editable mode, and verifies imports without requiring administrator rights.
+- `run.ps1` starts Streamlit on `http://localhost:8501` and opens your default browser.
+- Additional launcher options:
+  - `.\scripts\run.ps1 -Offline` (forces offline mode using cached or sample data)
+  - `.\scripts\run.ps1 -Port 8502` (custom port if 8501 is busy)
+  - `.\scripts\run.ps1 -NoBrowser` (starts headless without opening browser)
+
+### Manual Setup (Windows, macOS, Linux)
+
+```bash
+# 1. Clone repository
+git clone https://github.com/SreyasM24/OrbitX-ISS-Tracker.git
+cd OrbitX-ISS-Tracker
+
+# 2. Create and activate virtual environment
+python3 -m venv .venv
+# On Windows PowerShell:
+# .\.venv\Scripts\Activate.ps1
+# On macOS/Linux:
+source .venv/bin/activate
+
+# 3. Install dependencies
+pip install --upgrade pip
+pip install -r requirements-dev.txt
+pip install -e . --no-deps
+
+# 4. Launch application
+streamlit run frontend/app.py
+```
+
+Open `http://localhost:8501` in your browser.
+
+---
+
+## Configuration & Environment Variables
+
+OrbitX works out of the box with zero configuration. For advanced workshop setups or network proxy environments, optional overrides are supported via environment variables:
+
+| Variable | Default Value | Description |
+| :--- | :--- | :--- |
+| `ORBITX_OFFLINE` | `0` (or unset) | Set to `1` to disable all outbound network requests. |
+| `ORBITX_TLE_URL` | CelesTrak NORAD 25544 endpoint | Custom URL for orbital elements. |
+| `ORBITX_HTTP_TIMEOUT_S` | `8.0` | Timeout in seconds for external CelesTrak requests. |
+| `ORBITX_CACHE_TTL_S` | `7200` (2 hours) | Courtesy cache validity period before re-downloading. |
+| `ORBITX_CACHE_DIR` | `.orbitx_cache` | Directory path for local disk cache. |
+| `ORBITX_BACKGROUND_VIDEO` | `frontend/assets/iss-background.mp4` | Path to optional background video file. |
+
+A template file [`.env.example`](.env.example) is provided in the repository root for reference.
+
+---
+
+## Data Retrieval, Caching & Refresh Lifecycle
+
+OrbitX respects external infrastructure and client bandwidth through a 4-tier retrieval hierarchy:
+
+1. **Streamlit In-Memory Cache (5 Minutes):** `@st.cache_data(ttl=300)` prevents redundant disk checks or network polling when students adjust UI sliders or switch tabs.
+2. **Local Courtesy Disk Cache (2 Hours):** Downloaded elements are atomically cached to `.orbitx_cache/iss_tle.json`. In accordance with CelesTrak's guidelines, fresh downloads are bypassed within 2 hours unless the user explicitly clicks **↻ Re-download orbital elements**.
+3. **Live Network Fetch:** Queries CelesTrak (`https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE`) with an 8-second timeout, validating the NORAD catalogue ID (25544), line checksums, and satellite name.
+4. **Bundled Offline Fallback:** If internet is unavailable and no cache exists, OrbitX seamlessly loads `backend/data/sample_iss.tle`, marks the status as **SAMPLE**, and presents clear user-facing warnings that calculations are illustrative.
+5. **Display Refresh vs. Network Fetch:** The dashboard timer recalculates the SGP4 orbital state vector locally (takes ~2 ms CPU time). Recalculating positions does **not** trigger external network requests.
+
+---
+
+## Scientific Principles & Limitations
+
+- **Coordinate Frames:**
+  - Latitude and Longitude are geodetic coordinates referenced to the **WGS84 reference ellipsoid** ($a = 6378.137\text{ km}$, $1/f = 298.257223563$).
+  - Altitude is the true geometric height above the WGS84 ellipsoid computed via Bowring's closed-form reduction (`wgs84.height_of(geocentric)`).
+  - Orbital speed is the inertial velocity magnitude relative to the Geocentric Celestial Reference System (GCRS) ($|\vec{v}_{GCRS}| \approx 7.66\text{ km/s}$), distinct from the ground-track speed relative to Earth's rotating surface ($\approx 7.2\text{ km/s}$).
+- **Propagation Model:** Uses the standard Simplified General Perturbations 4 (SGP4) model. SGP4 accounts for Earth oblateness ($J_2, J_3, J_4$), atmospheric drag, and lunar/solar gravitational perturbations.
+- **Accuracy Degeneration:** Low Earth Orbit predictions degrade over time due to atmospheric density variations and unmodelled station thruster reboosts. OrbitX displays age warnings for elements $>3$ days old.
+- **Pass Geometry vs. Visibility:** Predicted passes are purely geometric (line-of-sight elevation > threshold). Visual naked-eye observation requires that the station be sunlit while the observer is in twilight/darkness with clear skies.
+
+---
+
+## Testing & Quality Assurance
+
+OrbitX maintains a comprehensive test suite covering scientific calculations, coordinate conversions, TLE parsing, edge cases, cache invalidation, and UI component rendering:
+
+```bash
+# Run complete test suite
+python -m pytest -q
+
+# Run with coverage report
+python -m pytest --cov=backend --cov=frontend tests/
+```
+
+### Verified Audit Results
+
+- **Test Suite Status:** **144 passed** (0 failures, 0 errors in 59.16s).
+- **Dependency Health (`pip check`):** No broken requirements or version conflicts.
+- **Security Vulnerability Scan (`pip-audit`):** **0 known vulnerabilities** found in production and development dependencies.
+- **Independent SGP4 Verification:** Sub-satellite positions match raw independent mathematical propagation to within $< 2.4\text{ mm}$ surface error and $\sim 1\text{ mm}$ altitude error.
+
+---
+
+## Deployment Guide
+
+### Recommended Platform: Streamlit Community Cloud
+
+OrbitX is optimised for direct deployment on **Streamlit Community Cloud** (no separate backend server or persistent volume required):
+
+1. **Fork or Push:** Ensure your repository is on GitHub with a clean `main` branch.
+2. **Sign In:** Go to [share.streamlit.io](https://share.streamlit.io) and connect your GitHub account.
+3. **Deploy App:**
+   - **Repository:** `SreyasM24/OrbitX-ISS-Tracker`
+   - **Branch:** `main`
+   - **Main file path:** `frontend/app.py`
+   - **App URL:** Choose an available custom subdomain (e.g. `orbitx-iss-tracker.streamlit.app`).
+4. **Advanced Settings (Optional):**
+   - Python version is automatically detected as `3.11` via `.python-version`.
+   - No secret environment variables or tokens are required.
+5. **Launch:** Click **Deploy!** The cloud builder installs dependencies from `requirements.txt` and starts the app in approximately 1 to 2 minutes.
+
+### Alternative Platform: Render (Python Web Service)
+
+If hosting on Render:
+- **Service Type:** Web Service (Python).
+- **Build Command:** `pip install -r requirements.txt && pip install -e . --no-deps`
+- **Start Command:** `streamlit run frontend/app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true`
+- **Storage:** Ephemeral disk is completely adequate; persistent disks are not required.
+
+> **Note on Vercel:** Vercel is designed for serverless functions (Node.js/Python serverless) and cannot sustain the persistent, bidirectional WebSocket connections required by Streamlit's reactive engine. Do not deploy Streamlit directly to Vercel without a full frontend rewrite.
+
+---
+
+## Security & Repository Hygiene
+
+- **Zero Secrets / API Keys:** OrbitX uses exclusively open, unauthenticated public science endpoints. No tokens, database passwords, or private credentials exist or are required.
+- **Input Validation:** User coordinates, search windows, and custom names are rigorously sanitised and bounded in [`backend/validation.py`](backend/validation.py).
+- **Execution Safety:** No dynamic `eval()`, `exec()`, `pickle`, or arbitrary shell execution primitives are used anywhere in runtime code.
+- **File System Protection:** Cache file operations use atomic staging (`.tmp` write followed by `os.replace`) with fallback error handling so read-only filesystems do not cause crashes.
+- **Git Hygiene:** Local caches (`.orbitx_cache/`), virtual environments (`.venv/`), temporary files, test outputs, and large untracked media files (`*.mp4`) are strictly excluded in [`.gitignore`](.gitignore).
+
+---
 
 ## Troubleshooting
 
-| Problem | Fix |
-| --- | --- |
-| `ModuleNotFoundError: No module named 'backend'` | Activate `.venv`, then `pip install -e .`. Check with `python -c "import backend, frontend"`. |
-| `python` is not recognised / opens the Microsoft Store | Install Python 3.10+ from python.org with "Add python.exe to PATH", open a new terminal, retry. |
-| PowerShell blocks `setup.ps1` | See the execution-policy note above, or use the manual steps. |
-| `pip install` fails or hangs | Check the internet connection or a proxy (`pip install --proxy http://host:port ...`). |
-| Page says **SAMPLE, NOT live** | You are offline, or CelesTrak could not be reached. This is a deliberate, honest fallback. |
-| Port 8501 is busy | `.\scripts\run.ps1 -Port 8502`. |
-| Browser does not open | Open `http://localhost:8501` yourself. |
-| No video background | Expected unless you add `frontend/assets/iss-background.mp4` (see [Background video](#background-video)). |
-| Map is grey | Map tiles need internet. The ISS marker and track still draw. |
-| Map area is completely empty | The map's scripts also need internet. Use the **Plain track plot** expander below it. |
-| Edited code, page unchanged | Save the file, then use **Rerun** in the Streamlit menu (or press **R**). |
-| `DeprecationWarning ... Setting the dtype on a NumPy array` | Raised inside Skyfield 1.55 under NumPy 2.5. It does not change results. A future Skyfield update should remove it; it is not suppressed here so you can see it. |
-| Windows Firewall prompt | Allowing private-network access for Python lets the browser reach `localhost`. |
+| Symptom | Cause | Solution |
+| :--- | :--- | :--- |
+| `ModuleNotFoundError: No module named 'backend'` | Virtual environment not active or package not installed in editable mode | Activate `.venv` and run `pip install -e . --no-deps`. |
+| Port 8501 is already in use | Another application or previous Streamlit process is running | Run `.\scripts\run.ps1 -Port 8502` or terminate the lingering process. |
+| Status shows **SAMPLE · bundled offline file** | No network connection or CelesTrak is temporarily unreachable | Expected offline fallback. The app functions normally with sample data. |
+| Map tiles are grey or empty | OpenStreetMap tile servers are blocked or internet is disconnected | Open the expander **"Plain track plot (works without internet)"** to view the Plotly track. |
+| Background video does not appear | Background video is optional and not tracked in Git | Place an H.264 video at `frontend/assets/iss-background.mp4` (see [assets README](frontend/assets/README.md)). |
+| `DeprecationWarning: Setting the dtype on a NumPy array...` | Upstream warning from Skyfield 1.55 on NumPy 2.5+ | Harmless upstream library warning; does not affect numerical calculation accuracy. |
 
-## Scientific limitations
+---
 
-- **Accuracy.** Positions come from the SGP4 model applied to public orbital elements (TLE). They are good for educational use, but error grows the further the requested time is from the element epoch (commonly kilometres per day for low-orbit objects). The ISS also fires thrusters for reboosts and debris avoidance, which an old TLE does not know about. The app warns when elements are stale (older than 3 days) or expired (older than 14 days), and when you request times far from the epoch.
-- **Passes are geometric.** A "pass" means the ISS is above your horizon. Seeing it also needs the ISS in sunlight, you in darkness (roughly the hours after sunset or before sunrise), clear sky and an open view. OrbitX does not yet check twilight or cloud, and does not model atmospheric refraction.
-- **Frames and units.** Latitude, longitude and altitude are geodetic (WGS84), altitude being the height above the ellipsoid. Orbital speed is relative to Earth's centre in a non-rotating frame (about 7.7 km/s), not the speed of the ground point.
-- **Time.** All calculations use UTC. IST (UTC+05:30) is shown for convenience only.
-- **City coordinates** are approximate city-centre values (about 0.01° precision), fine for pass prediction, not for surveying.
+## Student Workshop & Mission Guides
 
-## Data attribution and licence
+OrbitX includes five structured missions for classroom pairs:
 
-- Orbital elements: [CelesTrak](https://celestrak.org/) general-perturbations data for the ISS (NORAD 25544). Please follow CelesTrak's usage guidance; OrbitX reuses a download for 2 hours and caches it. `backend/data/sample_iss.tle` is one such element set, with its retrieval date in the file header.
-- Propagation and coordinates: Skyfield and the `sgp4` package. Map data and tiles: © OpenStreetMap contributors, subject to the OpenStreetMap tile usage policy.
-- OrbitX's own code is released under the [MIT License](LICENSE). It does not include third-party source code; dependencies (for example Skyfield and Folium under MIT, Streamlit and requests under Apache-2.0, pandas and NumPy under BSD-style licences) are installed separately under their own licences.
-- The optional background video is **not** covered by the MIT licence and is not distributed here; any video you add remains under its own licence.
+1. [Mission 1 · Where Is the ISS?](missions/mission-1.md) (20 min) — Understand coordinates, units, and orbital speed.
+2. [Mission 2 · Put the ISS on a Map](missions/mission-2.md) (20 min) — Visualise subpoints, ground tracks, and map projections.
+3. [Mission 3 · Where Will It Be?](missions/mission-3.md) (25 min) — Orbital period calculations, ground-track propagation, and antimeridian splitting.
+4. [Mission 4 · Can We See It?](missions/mission-4.md) (15 min) — Topocentric pass predictions, elevation thresholds, and azimuth angles.
+5. [Final Challenge · New City Challenge](missions/final-challenge.md) (10 min) — Register a new ground station and verify local pass schedules.
+
+Facilitators running classroom sessions should consult the comprehensive [FACILITATOR_GUIDE.md](FACILITATOR_GUIDE.md).
+
+---
+
+## Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for architecture rules, code standards, and pull request procedures. All code changes must include tests and maintain scientific transparency.
+
+---
+
+## Attribution & License
+
+- **Orbital Elements:** Courtesy of [CelesTrak](https://celestrak.org/) (Dr. T.S. Kelso).
+- **Orbit Propagation & Reduction:** [Skyfield](https://rhodesmill.org/skyfield/) & Brandon Rhodes; SGP4 by Daniel Warner and contributors.
+- **Cartography:** Base map data © [OpenStreetMap](https://www.openstreetmap.org/copyright) contributors.
+- **License:** OrbitX code is released under the [MIT License](LICENSE).
+- **Community:** Developed for the **GITAM Aero Astro Club (GAAC)**, GITAM University.

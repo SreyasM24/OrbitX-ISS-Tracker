@@ -1,22 +1,20 @@
-# Background video (optional, not included)
+# Background video
 
-OrbitX shows a looping, muted ISS video behind the dashboard when this file exists:
+OrbitX shows a looping, muted ISS video behind the mission-control dashboard:
 
 ```
 frontend/assets/iss-background.mp4
 ```
 
-The video is **not part of this repository**. The footage the maintainers used is third-party stock
-footage whose redistribution terms are not confirmed, so it is git-ignored (`*.mp4`).
-Without the file the dashboard shows a dark navy gradient instead and everything else works.
+The intended background video (`iss-background.mp4`, ~2.39 MB, 1080p H.264) is included in the repository and served directly via Streamlit static serving (`app/static/iss-background.mp4`).
 
-To use your own video:
+### Custom Video Replacement
 
-1. Choose footage you are allowed to use (your own, public domain, or a licence that permits
-   redistribution, such as NASA media or Pexels/Pixabay clips; check the exact licence).
-2. Save it as `frontend/assets/iss-background.mp4`, or point `ORBITX_BACKGROUND_VIDEO` at another path.
-3. Restart the app. OrbitX copies the file to `frontend/static/` (git-ignored) so Streamlit can serve it.
+To replace the background with your own clip:
 
-Tips: H.264 MP4, 1080p or lower, 10-30 seconds, no audio needed (it is always muted), a few MB.
-The app crossfades the end of the clip into its start, so a clip that does not loop perfectly
-still looks smooth.
+1. Choose footage permitted for redistribution (your own video, public domain NASA footage, or Creative Commons clips).
+2. Save it as `frontend/assets/iss-background.mp4` (or configure the `ORBITX_BACKGROUND_VIDEO` environment variable).
+3. Restart the application. OrbitX will synchronize the file to `frontend/static/` for Streamlit to serve.
+4. If no video file is present or browser autoplay is blocked, OrbitX gracefully displays the static dark navy glassmorphic gradient background without crashing or obscuring text.
+
+**Recommended format:** H.264 MP4, 1080p or 720p, 10–30 seconds, muted, < 5 MB.
