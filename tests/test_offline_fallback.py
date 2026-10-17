@@ -415,6 +415,14 @@ def test_background_video_and_gradient_fallback():
 
 def test_all_production_modules_import_cleanly():
     """Verify all project modules import cleanly without circular dependencies or missing attributes."""
+    from backend.config import APP_VERSION as config_app_version
+    from backend import APP_VERSION as pkg_app_version
+    from backend import __version__
+
+    assert config_app_version == "v1.2.0"
+    assert pkg_app_version == "v1.2.0"
+    assert __version__ == "1.2.0"
+
     import backend
     import backend.config
     import backend.diagnostics
@@ -436,6 +444,10 @@ def test_all_production_modules_import_cleanly():
 
     assert backend.__version__ == "1.2.0"
     assert backend.config.APP_VERSION == "v1.2.0"
+    assert backend.APP_VERSION == "v1.2.0"
     assert hasattr(backend.models, "OrbitalData")
     assert hasattr(backend.tle_service, "get_orbital_data")
+    assert hasattr(frontend.components, "APP_VERSION")
+    assert frontend.components.APP_VERSION == "v1.2.0"
+
 
