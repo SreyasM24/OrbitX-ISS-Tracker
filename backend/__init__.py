@@ -5,8 +5,6 @@ Nothing in this package imports Streamlit, so it can be tested and reused on its
 
 from __future__ import annotations
 
-__version__ = "1.2.0"
-APP_VERSION = "v1.2.0"
+from backend.version import APP_VERSION, __version__
 
 __all__ = ["__version__", "APP_VERSION"]
-

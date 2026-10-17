@@ -14,7 +14,7 @@ from backend.formatting import (
     format_longitude,
     format_utc,
 )
-from backend.config import APP_VERSION
+from backend.version import APP_VERSION
 from backend.models import DataSource, Freshness
 from backend.validation import utcnow
 

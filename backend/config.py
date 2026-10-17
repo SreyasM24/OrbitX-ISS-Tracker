@@ -10,12 +10,13 @@ import os
 from datetime import timedelta, timezone
 from pathlib import Path
 
+from backend.version import APP_VERSION, __version__
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = Path(__file__).resolve().parent / "data"  # bundled, read-only sample data
 MISSIONS_DIR = PROJECT_ROOT / "missions"
 SAMPLE_TLE_PATH = DATA_DIR / "sample_iss.tle"
 
-APP_VERSION = "v1.2.0"
 ISS_NORAD_ID = 25544
 ISS_NAME_HINTS = ("ISS", "ZARYA", "SPACE STATION")
 

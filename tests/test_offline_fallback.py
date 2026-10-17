@@ -315,8 +315,9 @@ def test_probe_endpoint_parse_error():
 
 
 def test_render_status_authoritative_app_version_regression(sample_tle):
-    """Regression test: render_status must render APP_VERSION without AttributeError."""
-    from backend.config import APP_VERSION
+    """Regression test: render_status must render canonical APP_VERSION without AttributeError."""
+    from backend.version import APP_VERSION
+    assert APP_VERSION == "v1.2.1"
     data = OrbitalData(
         sample_tle, DataSource.SAMPLE, None, "Bundled sample",
         "Bundled sample", (), diagnostics=(), cache_used=False,
@@ -415,15 +416,19 @@ def test_background_video_and_gradient_fallback():
 
 def test_all_production_modules_import_cleanly():
     """Verify all project modules import cleanly without circular dependencies or missing attributes."""
+    from backend.version import APP_VERSION as canonical_app_version, __version__ as canonical_version
     from backend.config import APP_VERSION as config_app_version
     from backend import APP_VERSION as pkg_app_version
-    from backend import __version__
+    from backend import __version__ as pkg_version
 
-    assert config_app_version == "v1.2.0"
-    assert pkg_app_version == "v1.2.0"
-    assert __version__ == "1.2.0"
+    assert canonical_version == "1.2.1"
+    assert canonical_app_version == "v1.2.1"
+    assert config_app_version == "v1.2.1"
+    assert pkg_app_version == "v1.2.1"
+    assert pkg_version == "1.2.1"
 
     import backend
+    import backend.version
     import backend.config
     import backend.diagnostics
     import backend.formatting
@@ -442,12 +447,78 @@ def test_all_production_modules_import_cleanly():
     import frontend.tabs
     import frontend.theme
 
-    assert backend.__version__ == "1.2.0"
-    assert backend.config.APP_VERSION == "v1.2.0"
-    assert backend.APP_VERSION == "v1.2.0"
+    # Verify modules point inside the repository (not an unexpected third-party namespace)
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parents[1]
+    assert Path(backend.__file__).resolve().is_relative_to(repo_root)
+    assert Path(backend.version.__file__).resolve().is_relative_to(repo_root)
+
+    assert backend.__version__ == "1.2.1"
+    assert backend.config.APP_VERSION == "v1.2.1"
+    assert backend.APP_VERSION == "v1.2.1"
     assert hasattr(backend.models, "OrbitalData")
     assert hasattr(backend.tle_service, "get_orbital_data")
     assert hasattr(frontend.components, "APP_VERSION")
-    assert frontend.components.APP_VERSION == "v1.2.0"
+    assert frontend.components.APP_VERSION == "v1.2.1"
 
 
+def test_version_footer_renders_correctly():
+    """Verify render_footer displays canonical APP_VERSION and attribution."""
+    from backend.version import APP_VERSION
+
+    rendered_markdown = []
+    def fake_markdown(text, unsafe_allow_html=False):
+        rendered_markdown.append(text)
+
+    with mock.patch("streamlit.markdown", side_effect=fake_markdown):
+        components.render_footer()
+
+    assert len(rendered_markdown) == 1
+    assert f"OrbitX {APP_VERSION}" in rendered_markdown[0]
+    assert "GITAM Aero Astro Club (GAAC)" in rendered_markdown[0]
+
+
+def test_fresh_subprocess_import_matrix():
+    """Verify imports succeed cleanly in fresh, unpolluted Python processes regardless of order."""
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    repo_dir = str(Path(__file__).resolve().parents[1])
+
+    snippets = [
+        # Streamlit Cloud load order: frontend components first
+        "import sys; sys.path.insert(0, r'%s'); from frontend import components; from backend.config import APP_VERSION; print(APP_VERSION)" % repo_dir,
+        # Backend config first then frontend
+        "import sys; sys.path.insert(0, r'%s'); from backend.config import APP_VERSION; from frontend import components; print(components.APP_VERSION)" % repo_dir,
+        # Canonical version leaf module first
+        "import sys; sys.path.insert(0, r'%s'); from backend.version import APP_VERSION; import backend; print(backend.APP_VERSION)" % repo_dir,
+        # Frontend app entry module
+        "import sys; sys.path.insert(0, r'%s'); import frontend.app; print('Loaded frontend.app successfully')" % repo_dir,
+    ]
+
+    for snippet in snippets:
+        res = subprocess.run(
+            [sys.executable, "-c", snippet],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        assert res.returncode == 0, f"Subprocess failed with stderr:\n{res.stderr}"
+
+
+def test_app_starts_when_all_endpoints_unavailable(tmp_path):
+    """Verify the Streamlit dashboard starts and renders cleanly when all network calls fail."""
+    from pathlib import Path
+    from streamlit.testing.v1 import AppTest
+
+    app_path = str(Path(__file__).resolve().parents[1] / "frontend" / "app.py")
+    app = AppTest.from_file(app_path, default_timeout=20)
+    # Block all live downloads so it exercises offline fallback
+    with mock.patch("requests.get", side_effect=ConnectionError("Cloud network isolated")):
+        app.run()
+
+    assert not app.exception
+    # Ensure tabs rendered
+    tab_labels = [t.label for t in app.tabs]
+    assert len(tab_labels) == 4
