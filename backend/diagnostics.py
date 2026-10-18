@@ -11,7 +11,16 @@ import time
 from typing import Any
 import requests
 
-from backend import config, tle_service
+import backend.config as config
+from backend import tle_service
+
+# Safe fallbacks if running in partially reloaded environment
+_DEFAULT_TIMEOUT = getattr(config, "HTTP_TIMEOUT", (3.0, 4.0))
+_DEFAULT_USER_AGENT = getattr(
+    config,
+    "USER_AGENT",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 (OrbitX-ISS-Tracker/1.2.1; educational; GITAM Aero Astro Club)",
+)
 
 logger = logging.getLogger("orbitx.diagnostics")
 
@@ -36,8 +45,9 @@ def probe_endpoint(
     """
     getter = http_get or requests.get
     name = tle_service._endpoint_display_name(url)
-    effective_timeout = timeout_s if timeout_s is not None else config.HTTP_TIMEOUT
-    headers = {"User-Agent": config.USER_AGENT, "Accept": "text/plain, */*"}
+    effective_timeout = timeout_s if timeout_s is not None else getattr(config, "HTTP_TIMEOUT", _DEFAULT_TIMEOUT)
+    ua = getattr(config, "USER_AGENT", _DEFAULT_USER_AGENT)
+    headers = {"User-Agent": ua, "Accept": "text/plain, */*"}
     start = time.monotonic()
 
     result: dict[str, Any] = {
@@ -105,5 +115,11 @@ def probe_all_endpoints(
     http_get: Any = None,
 ) -> list[dict[str, Any]]:
     """Probe all candidate endpoints sequentially and return full results."""
-    targets = endpoints or config.DEFAULT_TLE_URLS
+    _fallback_urls = (
+        getattr(config, "CELESTRAK_URL", "https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE"),
+        getattr(config, "ARISS_TLE_URL", "https://live.ariss.org/iss.txt"),
+        getattr(config, "WHERETHEISS_TLE_URL", "https://api.wheretheiss.at/v1/satellites/25544/tles?format=text"),
+        getattr(config, "CELESTRAK_FALLBACK_URL", "https://celestrak.org/NORAD/elements/gp.php?GROUP=stations&FORMAT=tle"),
+    )
+    targets = endpoints or getattr(config, "DEFAULT_TLE_URLS", _fallback_urls)
     return [probe_endpoint(url, timeout_s=timeout_s, http_get=http_get) for url in targets]

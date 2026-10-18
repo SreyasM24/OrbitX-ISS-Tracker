@@ -191,10 +191,13 @@ def fetch_live_tle(
     http_get: Callable[..., requests.Response] | None = None,
     out_diagnostics: list[dict[str, Any]] | None = None,
     overall_budget_s: float | None = None,
+    *,
+    timeout_s: float | None = None,
 ) -> TleRecord:
     """Download and validate the ISS TLE with deterministic failover. Raises TleFetchError or TleParseError."""
     getter = http_get or requests.get
-    req_timeout = timeout if timeout is not None else config.HTTP_TIMEOUT
+    chosen_timeout = timeout if timeout is not None else timeout_s
+    req_timeout = chosen_timeout if chosen_timeout is not None else config.HTTP_TIMEOUT
     headers = {
         "User-Agent": config.USER_AGENT,
         "Accept": "text/plain, */*",

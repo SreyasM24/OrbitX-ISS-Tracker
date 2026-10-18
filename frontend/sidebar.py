@@ -107,33 +107,39 @@ def render_sidebar() -> Controls:
             st.caption("Probe candidate TLE endpoints directly from this running server.")
             if st.button("Run Live Endpoint Probes", key="btn_probe_endpoints"):
                 with st.spinner("Probing candidate endpoints..."):
-                    from backend.diagnostics import probe_all_endpoints
-                    results = probe_all_endpoints()
-                    for r in results:
-                        status = r["status_code"] or "ERR"
-                        if r["phase"] == "success":
-                            st.success(
-                                f"**{r['endpoint']}**: {r['elapsed_s']}s (HTTP {status}) — NORAD {r['catalog_number']}"
-                            )
-                        else:
-                            st.warning(
-                                f"**{r['endpoint']}**: {r['elapsed_s']}s [{r['phase']}] — {r['error']}"
-                            )
+                    try:
+                        from backend.diagnostics import probe_all_endpoints
+                        results = probe_all_endpoints()
+                        for r in results:
+                            status = r["status_code"] or "ERR"
+                            if r["phase"] == "success":
+                                st.success(
+                                    f"**{r['endpoint']}**: {r['elapsed_s']}s (HTTP {status}) — NORAD {r['catalog_number']}"
+                                )
+                            else:
+                                st.warning(
+                                    f"**{r['endpoint']}**: {r['elapsed_s']}s [{r['phase']}] — {r['error']}"
+                                )
+                    except Exception as exc:
+                        st.error(f"Diagnostic probe failure: {exc}")
             if st.button("🧪 Probe & Apply Live TLE", key="btn_apply_probe",
                          help="Probes all endpoints and saves the first successful live TLE into local cache, then reloads the dashboard."):
                 with st.spinner("Probing endpoints and applying live TLE..."):
-                    from backend.diagnostics import probe_all_endpoints
-                    from backend.validation import utcnow
-                    results = probe_all_endpoints()
-                    applied = False
-                    for r in results:
-                        if r.get("phase") == "success" and r.get("tle_record"):
-                            tle_service.write_cache(r["tle_record"], utcnow(), r["url"], config.CACHE_PATH)
-                            st.success(f"Applied live elements from {r['endpoint']}! Reloading...")
-                            applied = True
-                            st.rerun()
-                            break
-                    if not applied:
-                        st.error("All endpoints failed during live probe.")
+                    try:
+                        from backend.diagnostics import probe_all_endpoints
+                        from backend.validation import utcnow
+                        results = probe_all_endpoints()
+                        applied = False
+                        for r in results:
+                            if r.get("phase") == "success" and r.get("tle_record"):
+                                tle_service.write_cache(r["tle_record"], utcnow(), r["url"], config.CACHE_PATH)
+                                st.success(f"Applied live elements from {r['endpoint']}! Reloading...")
+                                applied = True
+                                st.rerun()
+                                break
+                        if not applied:
+                            st.error("All endpoints failed during live probe.")
+                    except Exception as exc:
+                        st.error(f"Probe & Apply failure: {exc}")
 
     return Controls(track_minutes, step_s, search_hours, min_elevation, zone_label, refresh_seconds)
