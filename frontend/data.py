@@ -32,14 +32,18 @@ def _tle_from_strings(name: str, line1: str, line2: str) -> TleRecord:
     return tle_service.parse_tle_text(f"{name}\n{line1}\n{line2}")
 
 
-@st.cache_data(show_spinner=False, max_entries=32)
 def cached_track(name, line1, line2, start, duration_min, step_s):
     satellite = build_satellite(_tle_from_strings(name, line1, line2))
     return predict_track(satellite, start, duration_min, step_s)
 
 
-@st.cache_data(show_spinner="Searching for passes…", max_entries=32)
+cached_track.clear = lambda: None
+
+
 def cached_passes(name, line1, line2, lat, lon, start, hours, min_elevation):
     satellite = build_satellite(_tle_from_strings(name, line1, line2))
     observer = observer_from_text("Observer", lat, lon)
     return find_passes(satellite, observer, start, hours, min_elevation)
+
+
+cached_passes.clear = lambda: None

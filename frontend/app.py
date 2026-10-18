@@ -18,11 +18,11 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # In long-running Streamlit Cloud container environments, clear any stale backend
-# module cache so that git updates to backend modules take effect immediately upon script re-run.
+# and frontend module caches so git updates take effect cleanly upon script re-run.
 import os  # noqa: E402
 if not os.environ.get("PYTEST_CURRENT_TEST") and "pytest" not in sys.modules:
     for _mod in list(sys.modules):
-        if _mod == "backend" or _mod.startswith("backend."):
+        if _mod in ("backend", "frontend") or _mod.startswith(("backend.", "frontend.")):
             sys.modules.pop(_mod, None)
 
 import streamlit as st  # noqa: E402

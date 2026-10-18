@@ -67,7 +67,7 @@ def render_passes_tab(tle, observer, start, controls) -> None:
             f"{observer.latitude_deg}", f"{observer.longitude_deg}",
             start, controls.search_hours, float(controls.min_elevation),
         )
-    except (PredictionError, ValidationError) as exc:
+    except Exception as exc:
         st.error(f"Pass search failed: {exc}")
         return
     st.markdown(
