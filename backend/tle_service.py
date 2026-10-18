@@ -160,6 +160,11 @@ def freshness_warning(tle: TleRecord, now: datetime) -> str | None:
     return None
 
 
+def _temp_cache_fallback_path() -> Path:
+    import tempfile
+    return Path(tempfile.gettempdir()) / ".orbitx_cache" / "iss_tle.json"
+
+
 def _endpoint_display_name(target_url: str) -> str:
     """Return a clean, safe label for an endpoint without sensitive query params."""
     try:
@@ -167,7 +172,7 @@ def _endpoint_display_name(target_url: str) -> str:
         parsed = urlparse(target_url)
         domain = parsed.netloc or target_url
         if "celestrak" in domain:
-            if "GROUP=stations" in (parsed.query or ""):
+            if "group=stations" in (parsed.query or "").lower():
                 return "CelesTrak (stations group)"
             return "CelesTrak (NORAD 25544)"
         if "wheretheiss" in domain:
@@ -182,37 +187,50 @@ def _endpoint_display_name(target_url: str) -> str:
 # ---------------------------------------------------------------------------- fetch
 def fetch_live_tle(
     url: str | None = None,
-    timeout_s: float | None = None,
+    timeout: tuple[float, float] | float | None = None,
     http_get: Callable[..., requests.Response] | None = None,
     out_diagnostics: list[dict[str, Any]] | None = None,
+    overall_budget_s: float | None = None,
 ) -> TleRecord:
-    """Download and validate the ISS TLE. Raises TleFetchError or TleParseError."""
+    """Download and validate the ISS TLE with deterministic failover. Raises TleFetchError or TleParseError."""
     getter = http_get or requests.get
-    timeout = timeout_s or config.HTTP_TIMEOUT_S
-    headers = {"User-Agent": config.USER_AGENT}
+    req_timeout = timeout if timeout is not None else config.HTTP_TIMEOUT
+    headers = {
+        "User-Agent": config.USER_AGENT,
+        "Accept": "text/plain, */*",
+    }
 
     # If an explicit URL was provided (custom override or test fixture), use only that URL.
     urls_to_try = [url] if url else list(config.DEFAULT_TLE_URLS)
 
     last_error: Exception | None = None
     attempt_errors: list[str] = []
+    total_start = time.monotonic()
+    max_budget = overall_budget_s or config.MAX_TOTAL_FETCH_BUDGET_S
+
     for target_url in urls_to_try:
+        if (time.monotonic() - total_start) >= max_budget:
+            budget_msg = f"Overall fetch budget of {max_budget:.1f}s exceeded before attempting remaining endpoints"
+            logger.warning(budget_msg)
+            attempt_errors.append(budget_msg)
+            break
+
         endpoint_name = _endpoint_display_name(target_url)
         start_time = time.monotonic()
         diag_entry: dict[str, Any] = {
             "endpoint": endpoint_name,
             "url": target_url,
-            "timeout_s": timeout,
+            "timeout_s": req_timeout,
             "elapsed_s": 0.0,
             "status_code": None,
             "phase": "networking",
             "error": None,
         }
         try:
-            logger.info("Attempting TLE fetch from %s (timeout=%.1fs)", endpoint_name, timeout)
+            logger.info("Attempting TLE fetch from %s (timeout=%s)", endpoint_name, req_timeout)
             response = getter(
                 target_url,
-                timeout=timeout,
+                timeout=req_timeout,
                 headers=headers,
             )
             elapsed = time.monotonic() - start_time
@@ -232,6 +250,28 @@ def fetch_live_tle(
             if out_diagnostics is not None:
                 out_diagnostics.append(diag_entry)
             return record
+        except requests.exceptions.ConnectTimeout:
+            elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["phase"] = "networking"
+            diag_entry["error"] = f"Connection timed out after {elapsed:.2f}s"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
+            msg = f"{endpoint_name}: connection timed out after {elapsed:.1f}s"
+            logger.warning("TLE connection timeout on %s after %.2fs", endpoint_name, elapsed)
+            attempt_errors.append(msg)
+            last_error = TleFetchError(msg)
+        except requests.exceptions.ReadTimeout:
+            elapsed = time.monotonic() - start_time
+            diag_entry["elapsed_s"] = round(elapsed, 3)
+            diag_entry["phase"] = "networking"
+            diag_entry["error"] = f"Read timed out after {elapsed:.2f}s"
+            if out_diagnostics is not None:
+                out_diagnostics.append(diag_entry)
+            msg = f"{endpoint_name}: read timed out after {elapsed:.1f}s"
+            logger.warning("TLE read timeout on %s after %.2fs", endpoint_name, elapsed)
+            attempt_errors.append(msg)
+            last_error = TleFetchError(msg)
         except requests.exceptions.Timeout:
             elapsed = time.monotonic() - start_time
             diag_entry["elapsed_s"] = round(elapsed, 3)
@@ -239,10 +279,10 @@ def fetch_live_tle(
             diag_entry["error"] = f"Request timed out after {elapsed:.2f}s"
             if out_diagnostics is not None:
                 out_diagnostics.append(diag_entry)
-            msg = f"{endpoint_name}: the request timed out (after {elapsed:.1f}s)"
+            msg = f"{endpoint_name}: request timed out after {elapsed:.1f}s"
             logger.warning("TLE fetch timeout on %s after %.2fs", endpoint_name, elapsed)
             attempt_errors.append(msg)
-            last_error = TleFetchError("the request timed out")
+            last_error = TleFetchError(msg)
         except requests.exceptions.ConnectionError as exc:
             elapsed = time.monotonic() - start_time
             diag_entry["elapsed_s"] = round(elapsed, 3)
@@ -250,10 +290,10 @@ def fetch_live_tle(
             diag_entry["error"] = f"Connection error ({type(exc).__name__})"
             if out_diagnostics is not None:
                 out_diagnostics.append(diag_entry)
-            msg = f"{endpoint_name}: no network connection"
+            msg = f"{endpoint_name}: no network connection ({type(exc).__name__})"
             logger.warning("TLE connection error on %s: %s", endpoint_name, exc)
             attempt_errors.append(msg)
-            last_error = TleFetchError("no network connection")
+            last_error = TleFetchError(msg)
         except requests.exceptions.HTTPError as exc:
             elapsed = time.monotonic() - start_time
             status = getattr(exc.response, "status_code", "unknown")
@@ -263,10 +303,10 @@ def fetch_live_tle(
             diag_entry["error"] = f"HTTP {status}"
             if out_diagnostics is not None:
                 out_diagnostics.append(diag_entry)
-            msg = f"{endpoint_name}: the server returned HTTP {status}"
+            msg = f"{endpoint_name}: server returned HTTP {status}"
             logger.warning("TLE HTTP error on %s: %s", endpoint_name, msg)
             attempt_errors.append(msg)
-            last_error = TleFetchError(f"the server returned HTTP {status}")
+            last_error = TleFetchError(msg)
         except requests.exceptions.RequestException as exc:
             elapsed = time.monotonic() - start_time
             diag_entry["elapsed_s"] = round(elapsed, 3)
@@ -277,7 +317,7 @@ def fetch_live_tle(
             msg = f"{endpoint_name}: request failed ({type(exc).__name__})"
             logger.warning("TLE request exception on %s: %s", endpoint_name, exc)
             attempt_errors.append(msg)
-            last_error = TleFetchError(f"request failed ({type(exc).__name__})")
+            last_error = TleFetchError(msg)
         except TleParseError as exc:
             elapsed = time.monotonic() - start_time
             diag_entry["elapsed_s"] = round(elapsed, 3)
@@ -293,9 +333,9 @@ def fetch_live_tle(
     if last_error is not None:
         if len(attempt_errors) > 1:
             summary = "; ".join(attempt_errors)
-            raise TleFetchError(f"{last_error} (all {len(attempt_errors)} endpoints failed: {summary})")
+            raise TleFetchError(f"All {len(attempt_errors)} endpoints failed: {summary}")
         raise last_error
-    raise TleFetchError("no data received")
+    raise TleFetchError("No data received from any endpoint")
 
 
 # ---------------------------------------------------------------------------- cache
@@ -308,10 +348,25 @@ def write_cache(tle: TleRecord, retrieved_at: datetime, url: str, path: Path) ->
         "retrieved_at_utc": ensure_utc(retrieved_at).isoformat(),
         "source_url": url,
     }
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temp = path.with_suffix(".tmp")
-    temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
-    os.replace(temp, path)
+    targets = [path]
+    if path == config.CACHE_PATH:
+        targets.append(_temp_cache_fallback_path())
+
+    last_exc: OSError | None = None
+    for target in targets:
+        try:
+            target.parent.mkdir(parents=True, exist_ok=True)
+            temp = target.with_suffix(".tmp")
+            temp.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+            os.replace(temp, target)
+            return
+        except OSError as exc:
+            last_exc = exc
+            if target == path and path != config.CACHE_PATH:
+                raise
+            continue
+    if last_exc:
+        raise last_exc
 
 
 def read_cache(path: Path) -> tuple[TleRecord, datetime] | None:
@@ -319,10 +374,19 @@ def read_cache(path: Path) -> tuple[TleRecord, datetime] | None:
 
     Raises TleParseError if a cache file exists but is unusable.
     """
-    if not path.exists():
+    targets = [path]
+    if path == config.CACHE_PATH:
+        targets.append(_temp_cache_fallback_path())
+
+    chosen_path: Path | None = None
+    for target in targets:
+        if target.exists():
+            chosen_path = target
+            break
+    if chosen_path is None:
         return None
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(chosen_path.read_text(encoding="utf-8"))
         source_url = payload.get("source_url", "")
         tle = parse_tle_text(
             f"{payload['name']}\n{payload['line1']}\n{payload['line2']}",
@@ -338,6 +402,8 @@ def _provider_label(source_url: str) -> tuple[str, str]:
     """Return (label, description) based on the TLE source URL."""
     lowered = source_url.lower()
     if "celestrak" in lowered:
+        if "group=stations" in lowered:
+            return "CelesTrak stations feed (live download)", "Fetched from CelesTrak stations group."
         return "CelesTrak GP data (live download)", "Fetched directly from CelesTrak."
     if "wheretheiss" in lowered:
         return "WhereTheISS.at (live mirror)", "Fetched from WhereTheISS.at live TLE mirror."
@@ -350,6 +416,8 @@ def _cached_provider_label(source_url: str) -> str:
     """Return cache label based on the original TLE source URL."""
     lowered = source_url.lower()
     if "celestrak" in lowered:
+        if "group=stations" in lowered:
+            return "CelesTrak stations (cached download)"
         return "CelesTrak (cached download)"
     if "wheretheiss" in lowered:
         return "WhereTheISS.at (cached download)"

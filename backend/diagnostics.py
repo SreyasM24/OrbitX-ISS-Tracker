@@ -18,7 +18,7 @@ logger = logging.getLogger("orbitx.diagnostics")
 
 def probe_endpoint(
     url: str,
-    timeout_s: float = 3.5,
+    timeout_s: float | tuple[float, float] | None = None,
     http_get: Any = None,
 ) -> dict[str, Any]:
     """Test a single endpoint independently and record comprehensive telemetry.
@@ -36,13 +36,14 @@ def probe_endpoint(
     """
     getter = http_get or requests.get
     name = tle_service._endpoint_display_name(url)
-    headers = {"User-Agent": config.USER_AGENT}
+    effective_timeout = timeout_s if timeout_s is not None else config.HTTP_TIMEOUT
+    headers = {"User-Agent": config.USER_AGENT, "Accept": "text/plain, */*"}
     start = time.monotonic()
 
     result: dict[str, Any] = {
         "endpoint": name,
         "url": url,
-        "timeout_s": timeout_s,
+        "timeout_s": effective_timeout,
         "elapsed_s": 0.0,
         "status_code": None,
         "phase": "networking",
@@ -52,8 +53,8 @@ def probe_endpoint(
     }
 
     try:
-        logger.info("Diagnostic probe starting for %s (timeout=%.1fs)", name, timeout_s)
-        response = getter(url, timeout=timeout_s, headers=headers)
+        logger.info("Diagnostic probe starting for %s (timeout=%s)", name, effective_timeout)
+        response = getter(url, timeout=effective_timeout, headers=headers)
         result["elapsed_s"] = round(time.monotonic() - start, 3)
         result["status_code"] = response.status_code
         response.raise_for_status()
@@ -100,7 +101,7 @@ def probe_endpoint(
 
 def probe_all_endpoints(
     endpoints: tuple[str, ...] | None = None,
-    timeout_s: float = 3.5,
+    timeout_s: float | tuple[float, float] | None = None,
     http_get: Any = None,
 ) -> list[dict[str, Any]]:
     """Probe all candidate endpoints sequentially and return full results."""

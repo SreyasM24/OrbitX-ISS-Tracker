@@ -522,3 +522,94 @@ def test_app_starts_when_all_endpoints_unavailable(tmp_path):
     # Ensure tabs rendered
     tab_labels = [t.label for t in app.tabs]
     assert len(tab_labels) == 4
+
+
+def test_primary_timeout_secondary_succeeds(tmp_path, sample_text, sample_tle):
+    """Verify primary endpoint timeout fails over to secondary live provider seamlessly."""
+    cache = tmp_path / "failover_cache.json"
+    now = sample_tle.epoch_utc + timedelta(hours=1)
+
+    attempts = []
+    def failover_get(url, **kwargs):
+        attempts.append(url)
+        if "celestrak" in url:
+            raise requests.exceptions.ConnectTimeout(f"Timed out connecting to {url}")
+        return FakeResponse(sample_text)
+
+    data = ts.get_orbital_data(now=now, cache_path=cache, http_get=failover_get)
+    assert data.source is DataSource.LIVE
+    assert data.tle.catalog_number == 25544
+    assert len(attempts) >= 2
+
+
+def test_provider_returns_200_html_error_fails_over(tmp_path, sample_text, sample_tle):
+    """Verify provider returning 200 with HTML/invalid payload fails over cleanly."""
+    cache = tmp_path / "html_cache.json"
+    now = sample_tle.epoch_utc + timedelta(hours=1)
+
+    def html_then_tle(url, **kwargs):
+        if "CATNR=25544" in url:
+            return FakeResponse("<html><body>Cloudflare Block / Rate Limited</body></html>")
+        return FakeResponse(sample_text)
+
+    data = ts.get_orbital_data(now=now, cache_path=cache, http_get=html_then_tle)
+    assert data.source is DataSource.LIVE
+    assert data.tle.catalog_number == 25544
+
+
+def test_multisatellite_feed_extracts_iss_by_catalog_id():
+    """Verify multi-satellite feed correctly extracts NORAD 25544 regardless of order."""
+    tiangong = (
+        "CSS (TIANHE)\n"
+        "1 48274U 21035A   26290.50000000  .00010000  00000-0  10000-3 0  9999\n"
+        "2 48274  41.4700 120.0000 0005000 100.0000 260.0000 15.60000000  1000\n"
+    )
+    iss = (
+        "ISS (ZARYA)\n"
+        "1 25544U 98067A   26290.49943124  .00006695  00000-0  12995-3 0  9990\n"
+        "2 25544  51.6327  54.8173 0006780 275.4148  84.6066 15.48907033590718\n"
+    )
+    feed = f"{tiangong}\n{iss}"
+    record = ts.parse_tle_text(feed, expected_catalog_number=25544)
+    assert record.catalog_number == 25544
+    assert "ISS" in record.name
+
+
+def test_sample_data_never_gets_green_fresh_badge(sample_tle):
+    """Verify sample demonstration data NEVER gets a green FRESH badge."""
+    data = OrbitalData(
+        sample_tle, DataSource.SAMPLE, None, "Bundled sample",
+        "Bundled sample", (), diagnostics=(), cache_used=False,
+    )
+
+    right_col = mock.MagicMock()
+    with mock.patch("streamlit.container", return_value=mock.MagicMock()), \
+         mock.patch("streamlit.columns", return_value=(mock.MagicMock(), mock.MagicMock(), right_col)), \
+         mock.patch("streamlit.caption"), \
+         mock.patch("streamlit.markdown"), \
+         mock.patch("streamlit.warning"):
+        components.render_status(data, sample_tle, age_days=0.1, freshness=Freshness.FRESH)
+
+    right_col.success.assert_not_called()
+    right_col.warning.assert_called_with("SAMPLE / NOT LIVE")
+
+
+def test_failed_refresh_does_not_overwrite_valid_cached_data(tmp_path, sample_text, sample_tle):
+    """Verify a failed refresh does not overwrite or destroy existing valid disk cache."""
+    cache = tmp_path / "valid_cache.json"
+    now = sample_tle.epoch_utc + timedelta(hours=1)
+
+    # 1. Establish valid cache
+    ts.write_cache(sample_tle, now, "https://celestrak.org", cache)
+    assert cache.exists()
+
+    # 2. Force refresh with network failure
+    data = ts.get_orbital_data(
+        force_refresh=True, now=now + timedelta(hours=1),
+        cache_path=cache, http_get=raise_connection_error,
+    )
+    # App falls back to the valid cached data
+    assert data.source is DataSource.CACHED
+    assert cache.exists()
+    cached_tle, _ = ts.read_cache(cache)
+    assert cached_tle.catalog_number == 25544

@@ -31,10 +31,11 @@ CELESTRAK_FALLBACK_URL = os.environ.get(
 WHERETHEISS_TLE_URL = "https://api.wheretheiss.at/v1/satellites/25544/tles?format=text"
 ARISS_TLE_URL = "https://live.ariss.org/iss.txt"
 
-# Default candidate endpoints attempted in order when ORBITX_TLE_URL is not set.
-# If CelesTrak is rate-limiting or dropping cloud container IPs (AWS US-East),
-# failover immediately to WhereTheISS or ARISS live mirrors before trying the
-# secondary CelesTrak stations feed on the same domain.
+# Default candidate endpoints in deterministic failover order:
+# 1. Official CelesTrak catalog endpoint (NORAD 25544)
+# 2. ARISS (Amateur Radio on the ISS) live mirror
+# 3. WhereTheISS.at live mirror
+# 4. Official CelesTrak stations group feed (extracting NORAD 25544)
 DEFAULT_TLE_URLS: tuple[str, ...] = (
     CELESTRAK_URL,
     ARISS_TLE_URL,
@@ -42,10 +43,22 @@ DEFAULT_TLE_URLS: tuple[str, ...] = (
     CELESTRAK_FALLBACK_URL,
 )
 
-# Standard timeout per endpoint attempt in seconds.
+# Standard connect and read timeouts (seconds).
 # Bounded to avoid long UI blocking while allowing realistic HTTPS handshakes.
-HTTP_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_TIMEOUT_S", "5.0")), 15.0)
-USER_AGENT = "OrbitX-workshop/1.0 (educational; GITAM Aero Astro Club)"
+HTTP_CONNECT_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_CONNECT_TIMEOUT_S", "3.0")), 10.0)
+HTTP_READ_TIMEOUT_S = min(float(os.environ.get("ORBITX_HTTP_READ_TIMEOUT_S", "4.0")), 15.0)
+HTTP_TIMEOUT: tuple[float, float] = (HTTP_CONNECT_TIMEOUT_S, HTTP_READ_TIMEOUT_S)
+HTTP_TIMEOUT_S = HTTP_CONNECT_TIMEOUT_S + HTTP_READ_TIMEOUT_S
+MAX_TOTAL_FETCH_BUDGET_S = 12.0
+
+USER_AGENT = os.environ.get(
+    "ORBITX_USER_AGENT",
+    (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 "
+        "(OrbitX-ISS-Tracker/1.2.1; educational; GITAM Aero Astro Club)"
+    ),
+)
 
 # CelesTrak refreshes ISS elements every few hours and asks clients not to poll
 # more often than every 2 hours.
@@ -115,7 +128,11 @@ __all__ = [
     "WHERETHEISS_TLE_URL",
     "ARISS_TLE_URL",
     "DEFAULT_TLE_URLS",
+    "HTTP_CONNECT_TIMEOUT_S",
+    "HTTP_READ_TIMEOUT_S",
+    "HTTP_TIMEOUT",
     "HTTP_TIMEOUT_S",
+    "MAX_TOTAL_FETCH_BUDGET_S",
     "USER_AGENT",
     "CACHE_TTL_S",
     "CACHE_PATH",
