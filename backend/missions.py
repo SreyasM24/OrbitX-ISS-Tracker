@@ -28,24 +28,15 @@ class Mission:
 
 
 MISSIONS: tuple[Mission, ...] = (
-    Mission("1", "Mission 1 · Where Is the ISS?", 20, "mission-1.md"),
-    Mission("2", "Mission 2 · Put the ISS on a Map", 20, "mission-2.md"),
-    Mission("3", "Mission 3 · Where Will It Be?", 25, "mission-3.md"),
-    Mission("4", "Mission 4 · Can We See It?", 15, "mission-4.md"),
-    Mission("5", "Final · New City Challenge", 10, "final-challenge.md"),
+    Mission("1", "Mission 1 — Data Detective: Where Does the ISS Data Come From?", 15, "mission-1.md"),
+    Mission("2", "Mission 2 — Orbit Explorer: How Does OrbitX Track the ISS?", 15, "mission-2.md"),
+    Mission("3", "Mission 3 — Mission Upgrade: Find the Flaws. Build What's Next.", 10, "mission-3.md"),
 )
 
-# Every mission file must contain each of these as a level-2 heading (``## <name>``).
+# Core level-2 headings required across all mission guides (``## <name>``).
 REQUIRED_SECTIONS = (
     "Learning objective",
     "Estimated duration",
     "Concept",
-    "Source files",
-    "Instructions",
-    "Your task",
-    "AI prompt",
-    "Expected outcome",
-    "Verify",
-    "Common errors",
-    "Optional extension",
+    "Deliverable",
 )

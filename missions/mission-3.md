@@ -1,79 +1,106 @@
-# Mission 3 · Where Will It Be?
+# Mission 3 — Mission Upgrade: Find the Flaws. Build What's Next.
 
 ## Learning objective
 
-Use predicted positions to read the shape of an orbit from charts, estimate the orbital period, and understand why predictions get worse the further you go from the data's epoch.
+Think like professional space software engineers: audit a live application, identify meaningful improvements, limitations, or usability flaws, propose an architectural solution, and begin an engineering workflow that you can continue developing after the workshop.
 
 ## Estimated duration
 
-25 minutes (4:05 – 4:30 PM IST)
+10 minutes (Hands-on Workshop Phase 3 — with continued development at home)
 
 ## Concept
 
-A TLE lets us ask "where will the ISS be at 5:00 PM?" without waiting. `predict_track()` asks the SGP4 model for a position every *step* seconds across a time window. The **Telemetry** tab plots latitude, longitude and altitude against UTC time.
+In professional aerospace and software engineering, software is never "finished" on the first release. Real development involves exploring existing systems, understanding design trade-offs, uncovering subtle limitations, and planning iterative upgrades.
 
-- Latitude goes up and down like a wave between about -51.6° and +51.6°. One full wave is **one orbit**.
-- Longitude keeps sweeping from -180° to +180° and wrapping. It sweeps faster than Earth rotates, because the ISS moves west to east.
-- Altitude hovers between roughly 400 and 440 km and rises and falls **twice per orbit**. A little of that is the orbit being very slightly non-circular; most of it is that Earth is flattened, so the surface we measure height above (the WGS84 ellipsoid) lies further from Earth's centre at the equator than near the latitude extremes.
+In this mission, you and your partner will step into the shoes of the OrbitX core engineering team. You have 10 minutes to audit the application, pinpoint one high-impact opportunity for improvement, locate where it lives in the code, and propose how to build it. A small implementation during the session is optional; your primary goal is engineering discovery and planning.
 
-**Prediction limits matter.** The model ignores things like atmospheric drag changes and reboosts (when the ISS fires engines to climb back up). So error grows with distance from the TLE's epoch, and the app warns once you are more than 7 days away. The code also *bounds* requests (`validate_track_request` in `backend/validation.py`) so nobody can ask for a million points and freeze the page.
+### Distinguish Your Findings:
+Before reporting an issue, classify it into the correct engineering category:
+- **Confirmed Bug:** The application behaves contrary to its specifications or produces an error under reproducible conditions.
+- **System Limitation:** A deliberate trade-off or boundary of the current design (e.g. SGP4 accuracy degrading after 7 days, or map tiles requiring internet access).
+- **Usability Flaw:** The interface is confusing, hard to read on small screens, or lacks clear context for beginners.
+- **Feature Request:** A brand new capability that expands the application's scientific or educational usefulness.
 
-## Source files
+## Exploration areas
 
-| File | What it does |
-| --- | --- |
-| `frontend/charts.py` | `telemetry_figure()` builds the Plotly charts (you will edit this one) |
-| `backend/orbital_engine.py` | `predict_track()` and its output columns, `TRACK_COLUMNS` |
-| `backend/validation.py` | `validate_track_request()`: the limits |
-| `backend/config.py` | `DEFAULT_TRACK_MINUTES`, `MAX_TRACK_POINTS`, ... |
+Explore the deployed dashboard at [https://orbitx-iss-tracker.streamlit.app](https://orbitx-iss-tracker.streamlit.app) and inspect the codebase. Consider investigating one of these areas:
 
-## Instructions
+1. **Dashboard Usability & Visual Clarity:**
+   - Are the coordinate numbers and units immediately clear to someone without an astrophysics degree?
+   - How does the layout look on mobile devices or smaller laptop screens?
+2. **Telemetry & Unit Conversions:**
+   - Altitude is shown in kilometers (`km`). What if international users or news outlets need altitude in miles (`mi`)?
+   - The ISS travels at $\approx 7.66\text{ km/s}$ relative to Earth's center, but its ground track moves at $\sim 7.2\text{ km/s}$ relative to the ground. Could we show both?
+3. **Pass Predictions & Visual Observation:**
+   - In the **🔭 Passes** tab, OrbitX notes that a geometric pass does not guarantee visual sightings. Could we add an indicator for whether the pass happens during twilight when the ISS is illuminated by the sun against a dark sky?
+4. **Data Freshness & Error States:**
+   - What happens when a user enters an impossible latitude (e.g. 100° N) in the observer sidebar? Does OrbitX give a friendly, helpful error message?
+5. **Testing & Edge-Case Robustness:**
+   - Look inside the `tests/` directory. Are there edge cases (e.g. observer exactly at the South Pole, or passes crossing midnight) that could use additional automated test coverage?
 
-1. Open the **Telemetry** tab with a 180-minute prediction. Hover over the latitude curve. Find two consecutive peaks (or troughs) and note their times. The difference is the orbital period. (About 92 minutes.)
-2. Switch the sidebar to 720 minutes and 120 s steps. How many orbits fit in 12 hours?
-3. Try to break the limits on purpose: in the code, `validate_track_request(1440, 10)` raises an error. Run it in Python and read the message.
-4. Open `frontend/charts.py` and read `telemetry_figure()`. Find the `specs` list: each entry is one panel `(column, label, axis range)`.
-5. Check which columns `predict_track()` returns (`TRACK_COLUMNS` in `orbital_engine.py`). One of them is not plotted yet.
+## Practical workflow
 
-## Your task
+Follow this 6-step engineering workflow with your partner:
 
-Add a **fourth panel** to the telemetry chart: **Speed (km/s)**, using the existing `speed_km_s` column.
+1. **Explore:** Click through the tabs (**Map**, **Telemetry**, **Passes**, **Missions**) and sidebar controls.
+2. **Identify:** Choose ONE specific limitation, usability issue, or new feature idea.
+3. **Reproduce & Inspect:** Write down the exact steps to reproduce it, or articulate the missing capability.
+4. **Locate Code:** Search the repository to find the relevant file and function (e.g. [`backend/formatting.py`](backend/formatting.py), [`frontend/components.py`](frontend/components.py), or [`frontend/tabs.py`](frontend/tabs.py)).
+5. **Propose Solution:** Formulate a concrete, realistic design for the fix or feature.
+6. **Decide:** If you have time and are running locally, implement a small code change. Otherwise, record your proposal for your workshop showcase and home development!
 
-1. Add `("speed_km_s", "Speed (km/s)", None)` to the `specs` list.
-2. Change `rows=3` to `rows=4`.
-3. The x-axis title currently goes on the *bottom* panel (`row=3`), so move it to `row=4`.
-4. Increase the figure `height` (for example from 620 to 780) so four panels stay readable.
+## Suggested challenges
 
-Only `charts.py` needs to change.
+Choose an upgrade that matches your team's interest and experience:
 
-## AI prompt
+### Beginner: Add Altitude in Miles (Quick Code Upgrade)
+Space-news broadcasts frequently quote the ISS altitude in miles. You can add this in just two small edits!
 
-> Open `frontend/charts.py` in the OrbitX project. The function `telemetry_figure(track)` builds three stacked Plotly panels from the `specs` list. The DataFrame also has a `speed_km_s` column that is not plotted. Modify the function to add a fourth panel for `speed_km_s` titled "Speed (km/s)" with an automatic y-range. Update `rows`, the row number of the x-axis title (it must stay on the bottom panel), and the figure height. Don't change colours, the antimeridian-gap handling or the function signature. Show me a minimal diff and explain each changed line.
-
-Check that the answer keeps `insert_antimeridian_gaps()` in use, and that it doesn't rewrite the whole function.
-
-## Expected outcome
-
-- The **Telemetry** tab shows four stacked panels sharing one UTC time axis: latitude, longitude, altitude, speed.
-- Speed looks almost flat at about **7.6 – 7.7 km/s** and varies by well under 0.05 km/s. Altitude swings by roughly 10 km over an orbit. The ISS orbit is close to a circle.
-- You can state the orbital period from the latitude chart (about 92 minutes) and the number of orbits in your chosen window.
-
-## Verify
-
-```powershell
-python -c "from frontend.charts import telemetry_figure; from backend import orbital_engine as e, tle_service as t; from backend.validation import utcnow; d=t.get_orbital_data(); s=e.build_satellite(d.tle); f=telemetry_figure(e.predict_track(s, utcnow(), 180, 60)); print(len(f.data), 'panels')"
+1. In [`backend/formatting.py`](backend/formatting.py), add this helper function:
+```python
+def format_altitude(altitude_km: float) -> str:
+    """Format altitude with both kilometers and miles."""
+    miles = altitude_km * 0.621371
+    return f"{altitude_km:.0f} km ({miles:.0f} mi)"
 ```
 
-It must print `4 panels`. Then check the browser: the bottom panel has the "Time (UTC)" label, and the speed panel's y-axis is in km/s.
+2. In [`frontend/components.py`](frontend/components.py) inside `render_telemetry()`, import `format_altitude` and update line 117 to use it:
+```python
+c3.metric("Altitude", format_altitude(position.altitude_km),
+          help="Height above the WGS84 ellipsoid.")
+```
+Refresh the browser to see: `422 km (262 mi)`!
 
-## Common errors
+### Intermediate: Custom Pass Countdown or Audio Alerts
+- Design a card in the **Passes** tab that calculates a live countdown timer (`X hours Y minutes until next pass`) to the next visible flyover for the observer's city.
+- Add an automated test in `tests/test_pass_table.py` that verifies the countdown formatting.
 
-- **`4 panels` prints `3`**: you added to `specs` but the loop did not pick it up. Check `rows=4` and the spelling `speed_km_s`.
-- **Panels overlap or look squashed**: increase `height`.
-- **The x-axis label sits in the middle of the figure**: it is still on `row=3`; move it to `row=4`.
-- **`KeyError: 'speed_km_s'`**: the name must match `TRACK_COLUMNS` exactly.
-- Restore: `git checkout -- frontend/charts.py`.
+### Advanced: Solar Illumination & Sunlit Passes
+- Use Skyfield's ephemeris to calculate whether the ISS is in Earth's shadow (umbra) or direct sunlight during each pass event.
+- Filter the pass table to highlight true "Naked-Eye Viewing Opportunities" (observer in darkness, ISS in sunlight).
 
-## Optional extension
+## Deliverable
 
-Set `DEFAULT_TRACK_MINUTES` in `backend/config.py` to `270` and check that the slider default changes (the app adds it to the list of choices). Then, in Python, compare `validate_track_request(1440, 10)` with `validate_track_request(1440, 120)`: why does the first fail and the second pass? Find the check in `validate_track_request`.
+Each pair will summarize their engineering proposal in the workshop showcase:
+- **Discovery:** What issue, limitation, or improvement did you investigate?
+- **Category:** Confirmed Bug / System Limitation / Usability Flaw / Feature Request.
+- **Impact:** Why does this improvement matter to users or satellite observers?
+- **Technical Path:** Which file(s) and function(s) in the repository would you modify?
+- **Proposed Solution:** What is your planned approach or code change?
+
+## Continue developing at home
+
+**The 10 minutes in today's workshop is your launchpad — not the finish line!**
+
+The complete OrbitX codebase is open source and designed for continued hands-on learning:
+1. **Fork the Repository:** Visit [https://github.com/SreyasM24/OrbitX-ISS-Tracker](https://github.com/SreyasM24/OrbitX-ISS-Tracker) and click **Fork** to create your own copy on GitHub.
+2. **Clone & Set Up Locally:** Follow the quickstart steps in the root [`README.md`](README.md) to set up your Python virtual environment on your personal computer.
+3. **Create a Feature Branch:** In your terminal, create a branch for your upgrade:
+   ```bash
+   git checkout -b feature/my-iss-upgrade
+   ```
+4. **Build & Test:** Implement your idea, run the automated test suite with `pytest`, and verify that all 168 tests pass without regressions.
+5. **Share Your Work:** Push your changes to your fork, document your work in your README, and share your project link with your GAAC mentors or open a Pull Request!
+
+---
+*Learning Outcome: You know how to evaluate a live codebase, specify software improvements, and participate in real open-source satellite software engineering.*

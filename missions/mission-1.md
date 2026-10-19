@@ -1,94 +1,93 @@
-# Mission 1 · Where Is the ISS?
+# Mission 1 — Data Detective: Where Does the ISS Data Come From?
 
 ## Learning objective
 
-Read the ISS's position from real orbital data, and judge how much to trust it by checking how old that data is.
+Understand where OrbitX obtains orbital data, how to verify its origin and freshness, and how automatic fallback keeps the tracker reliable when networks fail.
 
 ## Estimated duration
 
-20 minutes (3:25 – 3:45 PM IST)
+15 minutes (Hands-on Workshop Phase 1)
 
 ## Concept
 
-The ISS does not broadcast its position to this app. Instead we download a **TLE** (two-line element set): a short text record from CelesTrak that describes the ISS's orbit at one moment, called the **epoch**. A mathematical model (**SGP4**, run through the **Skyfield** library) rolls that orbit forward or backward to any time we ask about.
+A satellite tracker cannot function without orbital data. Unlike ground vehicles tracked by cellular GPS, the International Space Station (ISS) orbits Earth at approximately 27,600 km/h (7.66 km/s) in the harsh environment of Low Earth Orbit (LEO).
 
-- **Latitude / longitude**: the point on Earth directly beneath the ISS (the *sub-satellite point*). Latitude is north/south of the equator, longitude is east/west of Greenwich.
-- **Altitude**: height above Earth's surface. Skyfield's WGS84 model treats Earth as a slightly squashed sphere, so we measure above that surface.
-- **Orbital speed**: how fast the ISS moves relative to Earth's centre, about 7.7 km/s, roughly 27,600 km/h.
-- **Freshness**: the model drifts as the TLE ages. A one-day-old TLE is good. A two-week-old one is only illustrative. The app labels data as **LIVE**, **CACHED** or **SAMPLE** so it never pretends.
+Instead of streaming direct, continuous GPS telemetry to web browsers, the satellite tracking community relies on an international standard known as a **TLE (Two-Line Element set)**. A TLE is a compact, two-line text record containing mean orbital elements (inclination, eccentricity, mean motion, and drag terms) generated from radar and optical tracking observations by the U.S. Space Surveillance Network.
 
-## Source files
+Every TLE corresponds to a specific point in time called the **epoch**:
+- Low Earth Orbit satellites experience upper atmospheric drag and occasional reboost maneuvers, causing their actual path to slowly drift away from old mathematical fits.
+- A TLE with an epoch less than 24 hours old provides excellent tracking accuracy (sub-kilometer).
+- A TLE that is two weeks old will drift by tens or hundreds of kilometers, making pass predictions unreliable.
 
-| File | What it does |
-| --- | --- |
-| `frontend/app.py` | Starts the dashboard and connects the pieces |
-| `frontend/components.py` | Draws the header, status panel and the four metric cards (you will edit this one too) |
-| `backend/tle_service.py` | Downloads, validates and caches TLEs; `get_orbital_data()`, `tle_age_days()` |
-| `backend/orbital_engine.py` | `build_satellite()` and `compute_position()` |
-| `backend/formatting.py` | Small text-formatting helpers (you will edit this one) |
+For this reason, a scientific satellite tracker must be completely honest about **where** its data came from, **when** the orbital fit was made, and **how fresh** that data is.
 
-## Instructions
+## What to investigate
 
-1. Launch the app (`.\scripts\run.ps1`) and look at the top of the page. Write down: the **data source** badge, the **epoch** and its **age**, and the **freshness** badge.
-2. Read the four numbers under "Calculated position": latitude, longitude, altitude, speed. Press **R** in the browser to rerun and watch them change.
-3. Open the sidebar and press **Re-download orbital elements** once (only once, many people share one network). Did the data source change?
-4. In the repository folder, create `scratch_mission1.py` (it is git-ignored) with this content, and run it with `python scratch_mission1.py` in your activated terminal:
+In this mission, you and your partner will investigate the live data pipeline of OrbitX:
+1. **Data Source Mode:** Determine whether OrbitX is currently running in **LIVE**, **CACHED**, or **SAMPLE** mode.
+2. **TLE Epoch & Data Age:** Find the exact date and UTC time the orbital elements were calculated, and how many hours or days old they are.
+3. **Download Timestamp:** Distinguish between when OrbitX *downloaded* the text record versus the *epoch* of the orbital elements themselves.
+4. **Data Provider:** Identify which external provider (CelesTrak, ARISS live mirror, or WhereTheISS.at mirror) supplied the elements.
+5. **Fallback Resilience:** Understand how OrbitX behaves when internet connectivity is lost or when a provider times out.
 
-```python
-from backend import orbital_engine, tle_service
-from backend.validation import utcnow
+## Guided steps
 
-data = tle_service.get_orbital_data()
-now = utcnow()
-print("source :", data.source.value)
-print("epoch  :", data.tle.epoch_utc)
-print("age (d):", round(tle_service.tle_age_days(data.tle, now), 2))
+### Step 1: Inspect the Mission Control Header
+Open the running OrbitX dashboard in your browser (at [https://orbitx-iss-tracker.streamlit.app](https://orbitx-iss-tracker.streamlit.app) or locally via `http://localhost:8501`). Look at the **Data status** panel directly below the header:
 
-satellite = orbital_engine.build_satellite(data.tle)
-position = orbital_engine.compute_position(satellite, now)
-print("lat/lon:", round(position.latitude_deg, 2), round(position.longitude_deg, 2))
-print("alt km :", round(position.altitude_km), " speed km/s:", round(position.speed_km_s, 2))
-```
+- **Left column (Data source):** Check the badge:
+  - 🟢 **LIVE · [Provider]**: The elements were fetched directly over the network during this session.
+  - 🔵 **CACHED · [Provider]**: The elements were downloaded recently and are being reused within the 2-hour courtesy window.
+  - 🔴 **SAMPLE · bundled offline file, NOT live**: No network or cache was available; OrbitX fell back to `backend/data/sample_iss.tle`.
+- **Middle column (Orbital element epoch):** Note the UTC timestamp and the relative age (e.g. `7.2 h old`).
+- **Right column (Element freshness):** Note the freshness badge: **FRESH** (< 3 days), **STALE** (3–14 days), or **EXPIRED** (> 14 days).
 
-5. Compare the script's numbers with the dashboard. They should agree to within a little movement, because time passed between the two.
+### Step 2: Uncover Provenance Details
+Click on the expander titled **🔍 Network & Provenance Details** directly below the status cards. Record:
+- **Application Version**
+- **Last Fetch Attempt (UTC)**
+- **Data Source Mode**
+- **Local Cache Active** (Yes/No)
+- **Retrieved At (UTC)**
+- **Endpoint Probe History:** Review the response latency and HTTP status code of recent server checks.
 
-## Your task
+### Step 3: Inspect the Source Configuration
+Open the project repository in your code editor (e.g. VS Code). Open [`backend/config.py`](backend/config.py) and locate lines 34–45:
+- Identify `DEFAULT_TLE_URLS`: notice that OrbitX configures a sequential failover list:
+  1. `CELESTRAK_URL` (official CelesTrak NORAD 25544 GP endpoint)
+  2. `ARISS_TLE_URL` (Amateur Radio on the ISS live mirror)
+  3. `WHERETHEISS_TLE_URL` (WhereTheISS.at live REST mirror)
+  4. `CELESTRAK_FALLBACK_URL` (CelesTrak stations group feed)
+- Notice `CACHE_TTL_S = 7200` (2 hours): why do we wait 2 hours before re-downloading? (CelesTrak only updates elements every few hours, and asks clients not to spam their servers).
 
-Space-news headlines often quote miles. Add a function `format_altitude(km)` to `backend/formatting.py` that returns text like `420 km (261 mi)` (1 km = 0.621371 mi), then use it for the **Altitude** metric in `frontend/components.py` (look for `c3.metric("Altitude"` in `render_telemetry()`).
-
-Keep the change small: one new function and one edited line. Do not touch the orbital calculations.
-
-## AI prompt
-
-Copy this into your AI coding assistant, then **read the answer before applying it**:
-
-> I'm working in a Python project called OrbitX. Open `backend/formatting.py` and look at how `format_age` and `format_latitude` are written. Add a new function `format_altitude(altitude_km: float) -> str` in the same style that returns a string like `"420 km (261 mi)"`, using 1 km = 0.621371 miles, rounded to whole numbers. Then show me the single line in `frontend/components.py` (the `c3.metric("Altitude", ...)` call) that should use it. Change nothing else. Explain what each line does.
-
-Check that the suggestion matches the existing style and that it only edits those two places.
-
-## Expected outcome
-
-- The dashboard's Altitude card reads something like `423 km (263 mi)` (the value is whatever the ISS is doing now; typically 400 – 440 km).
-- Your terminal script prints `source`, `epoch`, `age`, `lat/lon`, `alt` and `speed` lines with plausible values: latitude within ±52°, longitude within ±180°, speed near 7.66 km/s.
-
-## Verify
-
-Run in the terminal:
-
+### Step 4: Test Offline Fallback (Local Laptops)
+If running locally in PowerShell, stop the app and launch it in offline mode:
 ```powershell
-python -c "from backend.formatting import format_altitude; print(format_altitude(420))"
+.\scripts\run.ps1 -Offline
 ```
+Observe how the dashboard responds:
+- Does it crash? No!
+- What does the data source badge say now? (It switches to `CACHED` if a recent cache exists, or `SAMPLE` if cache is absent).
+- What warning appears at the top of the screen?
 
-It must print `420 km (261 mi)`. Then refresh the browser and check the dashboard. If you can, ask yourself: *is the age the app reports consistent with the epoch it shows?*
+## Investigation questions
 
-## Common errors
+Discuss these questions with your partner and record your answers:
 
-- **`ModuleNotFoundError: No module named 'backend'`**: your terminal is not using the project environment. Run `.\scripts\setup.ps1` again, or `pip install -e .` in the activated venv.
-- **`NameError: format_altitude`** in the browser: add it to `formatting.py` *and* import it in `frontend/components.py` (the `from backend.formatting import (...)` block).
-- **The page does not change**: save both files, then click **Rerun** in the browser's top-right menu.
-- **Data source says SAMPLE**: you are offline or the download failed. This is expected and honest. Continue; the maths is the same, only the data is older.
-- Something broke badly? `git checkout -- backend/formatting.py frontend/components.py` restores the originals.
+1. **What is a TLE, and what information does it contain?**
+2. **What is the difference between the TLE Epoch and the Download Timestamp?**
+3. **If you download a TLE right now, does that guarantee the orbital data is only 1 minute old? Why or why not?**
+4. **What does LIVE mean in OrbitX? Does LIVE mean you have a direct telemetry radio signal from the astronauts?**
+5. **Why does OrbitX implement multiple backup mirrors (ARISS, WhereTheISS.at) rather than relying exclusively on CelesTrak?**
+6. **What are the scientific limitations of predicting satellite passes using a TLE that is 20 days old?**
 
-## Optional extension
+## Deliverable
 
-Also show the speed in km/h (multiply by 3600) next to km/s. Then work out how many times the ISS orbits Earth per day: Earth's circumference at that altitude is roughly 2π(6371 + altitude) km. Divide by the speed to get the orbital period in minutes. (About 92.)
+Each pair must write down or share in the workshop showcase:
+- The currently observed **Data Source** and **Provider Name**.
+- The **TLE Epoch** (UTC) and its exact **Data Age**.
+- The **Download Timestamp** and how long ago it was cached.
+- A one-sentence explanation of why OrbitX falls back to bundled sample data instead of crashing when internet access is unavailable.
+
+---
+*Learning Outcome: You understand the origin, freshness limits, and architectural failover of satellite orbital data.*

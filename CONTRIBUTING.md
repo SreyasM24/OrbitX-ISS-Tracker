@@ -50,7 +50,7 @@ behaviour, add or update a test for it. If you fix a bug, add a test that fails 
 
 ## 5. Add a mission or exercise
 
-1. Copy the structure of an existing guide in `missions/` (for example `mission-4.md`) into a new
+1. Copy the structure of an existing guide in `missions/` (for example `mission-1.md`) into a new
    file. It must contain the required sections, which `tests/test_missions.py` checks.
 2. Register it in `backend/missions.py`.
 3. Run the tests and open the **Missions** tab to check that it renders.

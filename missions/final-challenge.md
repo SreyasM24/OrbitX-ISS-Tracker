@@ -1,4 +1,6 @@
-# Final · New City Challenge
+# Final · New City Challenge (Extension Guide)
+
+> **Self-Paced Extension Guide:** This is an optional post-workshop challenge for students continuing independent exploration at home. The 3 core workshop missions are Mission 1, Mission 2, and Mission 3.
 
 ## Learning objective
 

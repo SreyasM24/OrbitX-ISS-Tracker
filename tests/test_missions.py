@@ -10,7 +10,7 @@ from backend import config
 from backend.missions import MISSIONS, REQUIRED_SECTIONS, Mission
 
 ROOT = config.PROJECT_ROOT
-EXPECTED_FILES = ["mission-1.md", "mission-2.md", "mission-3.md", "mission-4.md", "final-challenge.md"]
+EXPECTED_FILES = ["mission-1.md", "mission-2.md", "mission-3.md"]
 # Functions that the missions ask participants to *write*, so they must not exist yet.
 TASK_FUNCTIONS = {"format_altitude", "footprint_radius_km", "best_pass", "evening_passes"}
 FILE_REF = re.compile(r"`((?:(?:backend|frontend)/\w+\.py)|(?:scripts/[\w.]+))`")
@@ -30,8 +30,8 @@ def test_registry_matches_expected_files_in_order():
 
 
 def test_durations_fit_the_workshop_schedule():
-    assert [m.minutes for m in MISSIONS] == [20, 20, 25, 15, 10]
-    assert sum(m.minutes for m in MISSIONS) == 90
+    assert [m.minutes for m in MISSIONS] == [15, 15, 10]
+    assert sum(m.minutes for m in MISSIONS) == 40
 
 
 @pytest.mark.parametrize("mission", MISSIONS, ids=lambda m: m.filename)
@@ -55,17 +55,6 @@ def test_referenced_repository_files_exist(mission):
     assert refs, "a mission should name the source files it uses"
     for ref in refs:
         assert (ROOT / ref).is_file(), f"{mission.filename} refers to missing {ref}"
-
-
-@pytest.mark.parametrize("mission", MISSIONS, ids=lambda m: m.filename)
-def test_functions_named_in_ai_prompt_exist_or_are_the_task(mission):
-    prompt = mission.read().split("## AI prompt")[1].split("\n## ")[0]
-    source = repo_source()
-    for name in re.findall(r"`(\w+)\(", prompt):
-        if name in TASK_FUNCTIONS:
-            assert f"def {name}" not in source, f"{name} is the participant's task but already exists"
-        else:
-            assert f"def {name}" in source or hasattr(config, name) or f"{name}(" in source, name
 
 
 @pytest.mark.parametrize("mission", MISSIONS, ids=lambda m: m.filename)

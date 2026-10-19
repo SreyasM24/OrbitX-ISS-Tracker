@@ -1,87 +1,118 @@
-# Mission 2 · Put the ISS on a Map
+# Mission 2 — Orbit Explorer: How Does OrbitX Track the ISS?
 
 ## Learning objective
 
-Understand what the map shows (the ground track), why the track "jumps" at the edge of the map, and how far around the ISS the sky can see it.
+Understand the end-to-end technical pipeline that turns raw two-line orbital elements into real-time sub-satellite coordinates, instantaneous velocity vectors, and interactive ground tracks.
 
 ## Estimated duration
 
-20 minutes (3:45 – 4:05 PM IST)
+15 minutes (Hands-on Workshop Phase 2)
 
 ## Concept
 
-The ISS orbits Earth in about 92 minutes while Earth turns beneath it. Mark the point directly below the ISS every minute and you get the **ground track**, a wavy line that shifts westward on each orbit. Because the orbit is tilted **51.6°** to the equator, the ISS never gets farther north or south than about 51.6° latitude.
+Many people assume satellite tracking apps receive a live, continuous GPS stream directly from the spacecraft. In reality, OrbitX uses **mathematical propagation**:
 
-Maps are flat but longitude wraps around: going east past +180° puts you at -180°. If you naively join the dots, a line is drawn all the way across the map. OrbitX avoids this in `split_track_segments()` by cutting the line at the edge and continuing on the other side.
+$$\text{Orbital Elements (TLE)} \longrightarrow \text{Orbital Propagation (SGP4)} \longrightarrow \text{State Vector } (\vec{r}, \vec{v}) \longrightarrow \text{Geodetic Coordinates (WGS84)} \longrightarrow \text{Dashboard \& Map}$$
 
-The ISS is also *high up*: from about 420 km, the **horizon** is far away. Geometry gives the surface distance to the horizon as
-
-`d = R × arccos( R / (R + h) )`  with R = 6371 km (Earth's radius), h = ISS altitude.
-
-Inside that circle (the **footprint**), the ISS is above the horizon, at least geometrically.
+### Key Technical Concepts:
+- **SGP4 (Simplified General Perturbations 4):** A mathematical model developed by NORAD and NASA that predicts the trajectory of satellites in Low Earth Orbit. SGP4 accounts for Earth's non-spherical shape (gravitational oblateness terms $J_2, J_3, J_4$), solar and lunar gravitational pulls, and atmospheric drag.
+- **State Vector:** At any given UTC instant, SGP4 computes the satellite's 3D position vector ($\vec{r}$) and velocity vector ($\vec{v}$) in an inertial coordinate frame (GCRS — Geocentric Celestial Reference System).
+- **Geodetic Coordinates (WGS84):** Earth is not a flat disk or a perfect sphere; it is an oblate ellipsoid. Skyfield projects the 3D position vector down to Earth's surface to calculate:
+  - **Sub-satellite Latitude & Longitude:** The geographic coordinate directly under the station.
+  - **Altitude:** The true height in kilometers above the WGS84 ellipsoid surface (approx. 415–430 km).
+  - **Orbital Speed:** The magnitude of the inertial velocity relative to Earth's center ($\|\vec{v}\| \approx 7.66\text{ km/s} \approx 27,600\text{ km/h}$). This is distinct from ground speed ($\sim 7.2\text{ km/s}$) because Earth rotates beneath the orbit.
+- **Ground Track:** The path traced across Earth's surface over time. Because the ISS has an orbital inclination of **51.6°** to the equator, its ground track forms a sinusoidal wave that never travels north of 51.6° N or south of 51.6° S.
 
 ## Source files
 
-| File | What it does |
-| --- | --- |
-| `frontend/map_view.py` | `build_map()` builds the Folium map (you will edit this one) |
-| `backend/orbital_engine.py` | `predict_track()` and `split_track_segments()` |
-| `frontend/tabs.py` | Calls `build_map()` in the **Map** tab (`render_map_tab()`) |
+| File | Primary Responsibility |
+|---|---|
+| [`frontend/app.py`](frontend/app.py) | Application entry point: connects the data provider, orbital engine, and UI components. |
+| [`backend/orbital_engine.py`](backend/orbital_engine.py) | Pure astrodynamics: initializes `EarthSatellite`, calls SGP4, computes positions and predicts ground tracks. |
+| [`frontend/components.py`](frontend/components.py) | Telemetry rendering: formats and displays headline metric cards (`Latitude`, `Longitude`, `Altitude`, `Orbital speed`). |
+| [`frontend/map_view.py`](frontend/map_view.py) | Cartography: renders the interactive Leaflet/Folium map, antimeridian line splitting, and markers. |
 
-## Instructions
+## Guided code exploration
 
-1. Open the **Map** tab. Find the orange ISS dot, the blue ground track, and the green marker for your observer location (Visakhapatnam by default).
-2. Use the sidebar's **Prediction length** slider: 60, 180, then 720 minutes. How many separate orbits can you see at 720? Where does the line shift on each orbit, east or west?
-3. Zoom in at the left and right edges of the map. Where does the track end and restart? That is the antimeridian cut.
-4. Open `frontend/map_view.py` and read `build_map()` top to bottom. Find where the ISS marker is created.
+Open the project files in your editor to trace how data flows through the application:
 
-## Your task
-
-**Warm-up (2 min):** change the colour constants at the top of `map_view.py` (`ISS_COLOR`, `TRACK_COLOR`) to something you like, and refresh.
-
-**Main task:** draw the ISS **footprint** on the map.
-
-1. In `map_view.py`, add `import math` and a helper:
-
-   ```python
-   EARTH_RADIUS_KM = 6371.0
-
-
-   def footprint_radius_km(altitude_km: float) -> float:
-       """Surface distance to the geometric horizon, from a given altitude."""
-       ...
-   ```
-
-   Fill in the body using the formula above (`math.acos`).
-2. In `build_map()`, after the ISS marker is added, draw a `folium.Circle` centred on `position.latitude_deg, position.longitude_deg` with `radius=` the footprint **in metres** (Folium wants metres, your function returns km), a thin outline, and a very light fill.
-
-## AI prompt
-
-> I'm editing `frontend/map_view.py` in the OrbitX project. `build_map(position, track_segments, observer, illustrative)` already returns a `folium.Map`. Add a function `footprint_radius_km(altitude_km)` that returns `6371 * acos(6371 / (6371 + altitude_km))`, and inside `build_map()` add a `folium.Circle` around the ISS position using `position.altitude_km`. Folium's radius is in **metres**. Use `ISS_COLOR` for the outline with `weight=1`, a very low `fill_opacity`, and a tooltip saying "Area where the ISS is above the horizon". Show me only the changed parts, and tell me where each goes.
-
-Check: did it convert km to metres? Did it reuse `ISS_COLOR` rather than inventing a new one?
-
-## Expected outcome
-
-- A translucent circle around the orange dot that moves with it. For the ISS at about 420 km its radius is **about 2,250 km** (the circle is distorted by the map projection near the poles, that is normal).
-- Changing the colour constants recolours the dot and the track.
-
-## Verify
-
-```powershell
-python -c "from frontend.map_view import footprint_radius_km; print(round(footprint_radius_km(420)))"
+### 1. Where Calculation Begins: `frontend/app.py`
+Open [`frontend/app.py`](frontend/app.py) and look at lines 75–86:
+```python
+@st.fragment(run_every=run_every)
+def render_live_dashboard() -> None:
+    current_time = utcnow()
+    start = current_time.replace(second=0, microsecond=0)
+    try:
+        satellite = build_satellite(tle)
+        position = compute_position(satellite, current_time)
+        track = cached_track(tle.name, tle.line1, tle.line2, start,
+                             controls.track_minutes, controls.step_s)
+    except (PredictionError, ValidationError) as exc:
+        st.error(f"Could not calculate the ISS position: {exc}")
+        return
 ```
+- Notice that every time this Streamlit fragment runs (configured by the refresh slider in the sidebar), it gets the current UTC instant: `current_time = utcnow()`.
+- It builds an `EarthSatellite` object from the TLE and passes it to `compute_position()`.
 
-This should print a number between **2200 and 2300**. Then check the map: at the centre of the circle the ISS is overhead; at its edge the ISS is on the horizon.
+### 2. The Astrodynamics Engine: `backend/orbital_engine.py`
+Open [`backend/orbital_engine.py`](backend/orbital_engine.py) and examine `compute_position()`:
+```python
+def compute_position(satellite: EarthSatellite, when_utc: datetime) -> SatellitePosition:
+    when = ensure_utc(when_utc)
+    geocentric = satellite.at(get_timescale().from_datetime(when))
+    subpoint = wgs84.subpoint_of(geocentric)
+    speed = float(np.linalg.norm(geocentric.velocity.km_per_s))
+    lat = subpoint.latitude.degrees
+    lon = subpoint.longitude.degrees
+    alt = wgs84.height_of(geocentric).km
+    return SatellitePosition(when, lat, lon, alt, speed)
+```
+- Notice how `satellite.at()` invokes SGP4.
+- Notice that `subpoint.latitude.degrees` and `subpoint.longitude.degrees` are extracted directly from the WGS84 model.
+- Notice that `speed` is the norm of the velocity vector: `np.linalg.norm(geocentric.velocity.km_per_s)`.
+- **Zero HTTP requests happen in this file.** It is pure, local numerical mathematics.
 
-## Common errors
+### 3. Displaying Telemetry: `frontend/components.py`
+Open [`frontend/components.py`](frontend/components.py) and locate `render_telemetry()`:
+- Notice how `position.latitude_deg`, `position.longitude_deg`, `position.altitude_km`, and `position.speed_km_s` are passed to `c1.metric`, `c2.metric`, `c3.metric`, and `c4.metric`.
+- If the data is from an expired TLE or sample file, the header transparently says `"Illustrative position"` instead of `"Calculated position"`.
 
-- **`NameError: math`**: add `import math` at the top of the file.
-- **A huge circle covering the whole map**: you passed kilometres where Folium expects metres. Multiply by 1000.
-- **The circle does not move when you rerun**: make sure you used `position.latitude_deg` and `position.longitude_deg`, not fixed numbers.
-- **Colour unchanged**: the constants must be valid CSS colours like `"#ff00aa"` or `"red"`.
-- Restore the original: `git checkout -- frontend/map_view.py`.
+## Interactive investigation
 
-## Optional extension
+Switch to the running OrbitX web dashboard:
 
-Make a second, smaller circle for a stricter rule: the ISS is **10° above** the horizon. The central angle then becomes `arccos( R·cos(e) / (R+h) ) − e` with e = 10° in radians, and `d = R × that angle`. Compare the two circle sizes. Which is the more useful area for spotting the ISS?
+1. **Observe the Ground Track on the Map:**
+   - In the sidebar under **Mission controls**, find the **Ground track** section.
+   - Adjust the **Prediction length (minutes)** slider: test **60 min**, **180 min**, and **720 min**.
+   - Watch the blue track on the map:
+     - At 60 minutes, you see less than one full orbit (one orbit takes $\approx 92.8$ minutes).
+     - At 180 minutes, you see roughly two complete orbits.
+     - At 720 minutes, you see the track weave across the globe. Notice how each successive orbit is shifted **westward** by roughly 23° of longitude. Why? Because Earth rotated east underneath the space station while it completed that orbit!
+2. **Observe the Antimeridian Cut ($\pm 180^\circ$):**
+   - Look at where the blue ground track hits the eastern and western edges of the map.
+   - Does a continuous line streak all the way across the Pacific Ocean from left to right?
+   - In [`backend/orbital_engine.py`](backend/orbital_engine.py), look at `split_track_segments()`: notice how OrbitX detects when longitude jumps from $+180^\circ$ to $-180^\circ$ and cuts the line so it renders cleanly.
+
+> **Important Distinction:** The **Prediction length** slider controls how far into the future OrbitX calculates the *ground track path*. It does **not** change the current position timestamp of the ISS now, which is always computed for the current UTC moment.
+
+## Investigation questions
+
+Discuss these questions with your partner:
+
+1. **What role does a TLE play in calculating the ISS's position?**
+2. **What does the SGP4 algorithm do with a TLE and a timestamp?**
+3. **How does OrbitX convert a 3D coordinate in space into a latitude and longitude on a map?**
+4. **Why is the ISS ground track bounded between 51.6° N and 51.6° S? Could the ISS ever fly directly over the North Pole?**
+5. **Why does each successive orbit shift westward on the world map?**
+6. **How does OrbitX's calculated position differ from direct real-time GPS telemetry?**
+
+## Deliverable
+
+Each pair must report:
+1. The four key files in the pipeline and what each file does (`app.py`, `orbital_engine.py`, `components.py`, `map_view.py`).
+2. An explanation of why the orbital speed is reported as $\approx 7.66\text{ km/s}$ while ground speed is $\sim 7.2\text{ km/s}$.
+3. One observation from the ground track slider investigation (e.g. how many orbits fit in 720 minutes, and why the path shifts westward).
+
+---
+*Learning Outcome: You understand the mathematical propagation pipeline from TLE orbital elements to live map tracks and coordinates.*

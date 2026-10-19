@@ -1,71 +1,62 @@
 # OrbitX Facilitator Guide
 
-For the organisers of the OrbitX workshop: **21 October 2026, 3:00 – 5:00 PM IST**, about 50 students in about 25 pairs.
+For the organisers of the OrbitX workshop: **90-minute hands-on GAAC workshop**, about 50 students working in about 25 pairs.
 
 The guiding rule: **a working demonstration beats a completed checklist.** If setup or the network eats time, jump to the fallback (section 6) and be honest with the room about which tasks were done live and which were only shown.
 
 ## 1. Essential outcomes and optional extras
 
-| Essential (every pair should leave with this) | Optional (faster pairs) |
+| Essential (every pair should leave with this) | Optional (faster pairs / at home) |
 | --- | --- |
-| A running OrbitX app, or the facilitator's projected demo. | Each mission's **Optional extension**. |
-| Can say what a TLE is, why its age matters and read the data-source label. | Building the footprint circle at 10° elevation. |
-| Has seen the ground track and knows why it shifts and wraps. | Changing `DEFAULT_TRACK_MINUTES` and exploring limits. |
-| Has read a pass table (UTC vs IST) and knows a pass is not guaranteed visibility. | `evening_passes()` and the city ranking. |
-| Has compared two locations. | Writing their own scripts beyond the starters. |
+| A running OrbitX app, or the facilitator's projected demo. | Mission 3 code enhancements (e.g. altitude in miles). |
+| Can explain what a TLE is, why its age matters, and read the data-source badge. | Investigating antimeridian line splitting or Doppler shift. |
+| Has traced TLE $\rightarrow$ SGP4 $\rightarrow$ position and knows why the ground track shifts west. | Reading pass predictions and visibility constraints. |
+| Has completed the 6-step engineering review in Mission 3 and proposed one upgrade. | Continuing independent development on their own GitHub fork. |
 
-The coding tasks (one per mission) are valuable but **not** required for the essentials; a pair that only watched and discussed Mission 2's circle still met the mission's objective.
+The hands-on missions prioritize **understanding and engineering discovery**; coding in Mission 3 is encouraged but optional. A pair that completed the audit and proposed an architecture solution has fully achieved the workshop objective.
 
 ## 2. Required software and pre-event setup
 
-**Per laptop (Windows 11 assumed):** Python 3.10 or newer, a modern browser, a text editor (VS Code recommended), Git, and access to any AI coding assistant the pair chooses (free tiers are fine; remind students never to paste personal data or secrets into it).
+**Per laptop (Windows 11 assumed):** Python 3.10 or newer, a modern browser, a text editor (VS Code recommended), Git, and optional access to an AI coding assistant.
 
 **Day before (strongly recommended):**
 
-1. Participants run `.\scripts\setup.ps1`, then `.\scripts\run.ps1` once, and tell you if it fails. This moves the internet-heavy install (a few hundred MB) out of the workshop.
-2. Facilitator, on the venue network if possible, runs the app, checks the data-source badge reads LIVE, and runs `python -m pytest` (all tests should pass).
-3. **Refresh the sample data.** `backend/data/sample_iss.tle` was taken on 2026-10-15, so by 21 October it is about 7 days old and the app will show an orange "STALE" warning if it is ever used. Replace its TLE lines with the latest from `https://celestrak.org/NORAD/elements/gp.php?CATNR=25544&FORMAT=TLE`, update the `# Retrieved:` comment lines, then check with `python -c "from backend import tle_service as t; print(t.load_sample_tle().epoch_utc)"`.
-4. **Avoid 50 simultaneous downloads.** All laptops probably share one public IP, and CelesTrak asks clients not to poll more than every 2 hours. On the facilitator machine run the app once while online, then copy the resulting `.orbitx_cache` folder into every participant's repository folder (USB stick or shared drive). Participants then run `.\scripts\run.ps1 -Offline`; the page honestly says **CACHED**, with its age.
-5. Print or project the schedule and the Wi-Fi details.
+1. **Pre-install:** Participants run `.\scripts\setup.ps1`, then `.\scripts\run.ps1` once, to ensure dependencies are downloaded before arriving at the venue.
+2. **Facilitator check:** On the venue network, run the app, check the data-source badge reads `LIVE` or `CACHED`, and run `pytest tests/` (all tests pass).
+3. **Avoid 50 simultaneous downloads:** On the facilitator machine, run the app once while online, then copy the resulting `.orbitx_cache` folder to a USB stick. If venue Wi-Fi struggles, distribute this folder so students run `.\scripts\run.ps1 -Offline`.
 
-**If the venue network is poor,** consider a pip "wheelhouse" (not tested with this repo): on a good connection run `pip download -r requirements-dev.txt -d wheelhouse`, share the folder, and install with `pip install --no-index --find-links wheelhouse -r requirements-dev.txt`.
+## 3. Workshop Schedule (90 Minutes Total)
 
-## 3. Schedule
+| Time | Block | Duration | Facilitator & Mentor Focus |
+| :--- | :--- | :--- | :--- |
+| **0:00 – 0:30** | Speaker presentations & demo | 30 min | 5 speakers present astrodynamics fundamentals and demo the live OrbitX app. |
+| **0:30 – 0:40** | Setup & environment check | 10 min | Mentors circulate. **Hard stop at 10 min**: anyone not running joins a neighbour. |
+| **0:40 – 0:55** | **Mission 1 — Data Detective** | 15 min | Pairs investigate data source, TLE epoch, age, and failover behavior. |
+| **0:55 – 1:10** | **Mission 2 — Orbit Explorer** | 15 min | Pairs trace SGP4 pipeline in code and explore ground track horizons. |
+| **1:10 – 1:20** | **Mission 3 — Mission Upgrade** | 10 min | Pairs audit the app, identify one limitation or feature, and formulate a proposal. |
+| **1:20 – 1:27** | Team showcase | 7 min | 2–3 volunteer pairs project their findings or code enhancements to the room. |
+| **1:27 – 1:30** | Wrap-up & next steps | 3 min | Explain GitHub forks, continuing development at home, and GAAC community links. |
 
-| Time (IST) | Block | Facilitator focus |
-| --- | --- | --- |
-| 3:00 – 3:10 | Mission briefing | Demo (checklist below). Explain pairs: one drives, one navigates, swap every mission. |
-| 3:10 – 3:25 | Setup and launch | Mentors circulate. **Hard stop at 3:25**: anyone not running joins a neighbour. |
-| 3:25 – 3:45 | Mission 1 · Where Is the ISS? | Data source, epoch, age. Task: `format_altitude`. |
-| 3:45 – 4:05 | Mission 2 · Put the ISS on a Map | Ground track, antimeridian. Task: footprint circle. |
-| 4:05 – 4:30 | Mission 3 · Where Will It Be? | Orbital period from the chart. Task: speed panel. |
-| 4:30 – 4:45 | Mission 4 · Can We See It? | Pass table, visibility caveats. Task: `best_pass`. |
-| 4:45 – 4:55 | New City Challenge | Compare two cities. Task: add a city. |
-| 4:55 – 5:00 | Debrief | Section 8. |
+Call out the time at each boundary. Keep the pace active and supportive.
 
-Call out the time at each boundary. If a mission overruns, tell pairs to skip its **Your task** and do the **Instructions** only; the essentials above still hold.
-
-## 4. Short demonstration checklist (3:00 – 3:10)
+## 4. Short demonstration checklist (0:00 – 0:30)
 
 - [ ] Projector shows the app with the data-source badge. Read it aloud: LIVE / CACHED / SAMPLE, and what each means.
 - [ ] Point out the element **epoch and age**: "everything you see is calculated from this one record."
 - [ ] Show the four metrics, then the Map tab (orange ISS marker, blue ground track, green observer pin).
-- [ ] Change the city in the sidebar; the pass table updates.
-- [ ] Show one pass row in UTC and IST: "IST = UTC + 5:30".
+- [ ] Change the ground track prediction slider (60 $\rightarrow$ 180 $\rightarrow$ 720 min): explain the 92-minute orbit and westward shift.
+- [ ] Show the **🎯 Missions** tab inside the app: show where the 3 guided missions sit.
 - [ ] Say clearly: **a pass is geometry; seeing the ISS also needs darkness for you, sunlight on it, and clear sky.**
-- [ ] Open `missions/mission-1.md`, and show where the AI prompt sits and the rule: *read the answer, change little, run it, verify.*
 
-## 5. Expected results for every mission
+## 5. Expected results for the three missions
 
-Numbers change daily; check **shapes and ranges**, never exact values.
-
-| Mission | What a successful pair has | Typical, sensible values |
+| Mission | What a successful pair has | Typical, sensible observations |
 | --- | --- | --- |
-| 1 | Altitude card shows e.g. `423 km (263 mi)`. Script prints source, epoch, age, position. | Latitude within ±52°, longitude ±180°, altitude about 400 – 440 km, speed about 7.66 km/s. |
-| 2 | Translucent circle around the ISS that moves with it. `footprint_radius_km(420)` between 2200 and 2300. | Reference value 2252 km at 420 km. |
-| 3 | Four chart panels (latitude, longitude, altitude, speed). They can state the period. | Period about 92 min (≈ 2 orbits in 180 min). Speed flat near 7.66 km/s, altitude swinging about 10 km. |
-| 4 | Green "Best pass" line matching the highest peak in the table. `best_pass([])` prints `None`. | 0 – 6 passes in 24 h above 10°, peaks from about 10° to 90°, duration roughly 3 – 7 min. |
-| 5 | Their city in the sidebar list; comparison script output. | Counts and peaks differ per city. Far-north cities (e.g. Reykjavik) get few, low passes. |
+| **1. Data Detective** | Identified data source, TLE epoch, data age, download timestamp, and provider from UI/config. | Epoch within hours/days of today; age matches epoch; provider is CelesTrak, ARISS, or WhereTheISS.at. |
+| **2. Orbit Explorer** | Traced TLE $\rightarrow$ SGP4 $\rightarrow$ `compute_position()` $\rightarrow$ UI; explained why speed is 7.66 km/s; explored 720-min ground track. | Speed is $\approx 7.66\text{ km/s}$ (orbital speed relative to Earth's center); ground track shifts westward $\approx 23^\circ$ per orbit. |
+| **3. Mission Upgrade** | Completed the 6-step review; categorized one real finding; proposed or implemented a fix (e.g. altitude in miles). | Identified file(s) to change (e.g. `formatting.py`, `components.py`); recorded proposal for showcase and home development. |
+
+*(Note: Legacy extension guides `missions/mission-4.md` and `missions/final-challenge.md` remain in the repository for students continuing independent exploration at home).*
 
 ## 6. Common failures and recovery
 
