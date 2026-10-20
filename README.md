@@ -16,14 +16,16 @@ OrbitX requires no API keys, paid subscriptions, or external database setups. It
 - **Honest Data Provenance:** Transparently labels the operational state as **LIVE** (fresh download), **CACHED** (local 2-hour courtesy cache), or **SAMPLE** (bundled offline fallback), displaying the exact orbital epoch and data age.
 - **Interactive Ground Track Map:** Renders Leaflet/Folium base maps displaying the current sub-satellite position, observer location, and 60-to-720-minute forward ground tracks, cleanly split across the $\pm 180^\circ$ antimeridian.
 - **Offline Resilient:** Operates seamlessly without internet access via bundled sample elements and a standalone Plotly track chart fallback that requires no external map tiles.
-- **Topocentric Pass Predictions:** Predicts geometric pass opportunities (rise time, peak elevation, set time, duration, and compass azimuth) in both UTC and Indian Standard Time (IST) for 8 Indian cities or custom decimal coordinates.
-- **Built-in Workshop Missions:** Embeds the guided 90-minute workshop curriculum directly inside the application's **🎯 Missions** tab.
+- **Topocentric Pass Predictions:** Predicts geometric pass opportunities (rise time, peak elevation, set time, duration, and compass azimuth) in Indian Standard Time (IST, UTC+05:30) for 8 Indian cities or custom decimal coordinates.
+- **Indian Standard Time (IST) Interface:** All user-facing timestamps (epoch, data age, fetch time, position time, charts, and passes) display in IST for the Indian workshop context, while internal orbital propagation strictly runs in UTC.
+- **Built-in Workshop Missions:** Embeds the guided 3-mission workshop curriculum directly inside the application's **🎯 Missions** tab.
+- **On-Demand Accuracy Cross-Check:** Includes an interactive sidebar tool to cross-check SGP4 mathematical predictions against external orbital propagation at the exact same UTC second.
 
 ---
 
 ## How OrbitX Works
 
-OrbitX does not receive a second-by-second radio telemetry stream from the International Space Station. Instead, it computes positions mathematically using standard orbital perturbation theory:
+OrbitX does not receive a direct live GPS telemetry feed from onboard the spacecraft. Instead, it computes positions mathematically using standard orbital perturbation theory:
 
 ```
 Orbital Data (TLE) ──> Orbital Propagation (SGP4) ──> 3D Position & Velocity ──> Geodetic WGS84 ──> Telemetry & Map
@@ -33,6 +35,8 @@ Orbital Data (TLE) ──> Orbital Propagation (SGP4) ──> 3D Position & Velo
 2. **Propagation (SGP4):** The Simplified General Perturbations 4 (SGP4) model (via the Skyfield library) evaluates gravitational forces (including Earth oblateness $J_2, J_3, J_4$) and atmospheric drag to calculate the 3D position vector ($\vec{r}$) and velocity vector ($\vec{v}$) at the current UTC time.
 3. **Coordinate Reduction (WGS84):** The 3D geocentric coordinates are projected onto the WGS84 reference ellipsoid to produce geographic latitude, longitude, and height above the surface.
 4. **Display:** The dashboard visualizes the sub-satellite point, plots forward ground tracks, and calculates observer sightlines.
+
+> **Important Distinction:** A **`LIVE`** source badge indicates successful retrieval of fresh orbital elements from the configured network endpoint (CelesTrak, ARISS, or WhereTheISS.at). It does **not** mean the displayed position is a direct onboard GPS measurement; it confirms that the mathematical model is propagating from the newest available tracking fit.
 
 ---
 
@@ -80,7 +84,7 @@ OrbitX-ISS-Tracker/
 ├── scripts/                  # Automated setup and run helpers
 │   ├── run.ps1               # Windows PowerShell launch script
 │   └── setup.ps1             # Windows PowerShell environment setup script
-├── tests/                    # Automated Pytest suite (168 tests)
+├── tests/                    # Automated Pytest suite (166 tests)
 ├── requirements.txt          # Production deployment dependencies
 ├── requirements-dev.txt      # Development and testing dependencies
 ├── FACILITATOR_GUIDE.md      # Organizer guide for the 90-minute workshop
@@ -165,10 +169,16 @@ flowchart LR
 - **● SAMPLE (Red):** The network was unreachable and no cache was found. OrbitX loaded `backend/data/sample_iss.tle`. The dashboard transparently marks coordinates as an **Illustrative position**.
 
 ### Key Timestamps to Distinguish:
-- **TLE Epoch:** The exact UTC instant when the orbital element fit was calculated by radar tracking networks.
+- **TLE Epoch:** The exact instant when the orbital element set was fitted by radar and optical tracking networks. Displayed in IST (e.g., `20 Oct 2026, 08:58:19 AM IST`).
 - **Data Age:** Elapsed time since the TLE epoch. OrbitX warns when data is **STALE** (> 3 days old) or **EXPIRED** (> 14 days old).
-- **Download Timestamp:** The instant OrbitX retrieved the text file and saved it to cache. A recent download timestamp does not make an old TLE fresh!
-- **Current Position Time:** The instantaneous UTC time at which SGP4 evaluated the position vector.
+- **Download / Fetch Time:** The exact instant OrbitX connected to the network endpoint and saved the TLE record. A recent download timestamp does **not** make an old TLE fresh!
+- **Current Position Time:** The instantaneous moment at which SGP4 evaluated the position vector. Displayed in IST in the main dashboard header and map marker popup.
+
+### Indian Standard Time (IST) Display Architecture
+
+OrbitX is tailored for students and aerospace enthusiasts in India:
+- **Presentation Layer (IST):** All user-facing timestamps—including the TLE epoch card, data freshness badges, download logs in the provenance drawer, calculated position header, telemetry charts, and topocentric pass predictions—are formatted in **Indian Standard Time (IST, UTC+05:30)** using Python's `zoneinfo.ZoneInfo("Asia/Kolkata")`.
+- **Core Computational Engine (UTC):** All internal orbital propagations, Skyfield time scales, cache serialization, data validation, and pandas series strictly preserve **UTC**. This prevents any timezone offset drift or date-boundary errors when computing across midnight boundaries.
 
 ---
 
@@ -183,19 +193,19 @@ Designed for university pairs working with mentors during the 90-minute GAAC wor
 ```
 
 ### [Mission 1 — Data Detective: Where Does the ISS Data Come From?](missions/mission-1.md) (15 min)
-- **Goal:** Investigate where orbital data originates, distinguish between TLE epoch and download time, and verify how OrbitX handles network outages.
-- **Activity:** Inspect the live status panel, examine the `🔍 Network & Provenance Details` expander, review `DEFAULT_TLE_URLS` in `backend/config.py`, and test offline fallback behavior.
-- **Deliverable:** Record the observed provider, TLE epoch, age, and explain why failover mirrors are essential for mission availability.
+- **Objective:** Understand ISS orbital data, Two-Line Element (TLE) structure, and epoch timestamps.
+- **Key Concepts:** Distinguish between when orbital elements were generated (epoch) versus when they were downloaded (fetch time); interpret operational status badges (**LIVE**, **CACHED**, **SAMPLE**) and element freshness (**FRESH**, **NOMINAL**, **STALE**, **EXPIRED**).
+- **Activity:** Inspect the live data status panel, open the `🔍 Network & Provenance Details` drawer, test multi-mirror failover behavior, and record element age.
 
 ### [Mission 2 — Orbit Explorer: How Does OrbitX Track the ISS?](missions/mission-2.md) (15 min)
-- **Goal:** Trace the mathematical pipeline from TLE elements to instantaneous latitude, longitude, altitude, speed, and interactive ground tracks.
-- **Activity:** Follow the data flow through `frontend/app.py`, `backend/orbital_engine.py`, `frontend/components.py`, and `frontend/map_view.py`. Explore the ground track prediction slider (60 to 720 minutes) and observe why tracks shift westward across successive orbits.
-- **Deliverable:** Identify the key responsibilities of each pipeline module, explain why orbital speed ($\approx 7.66\text{ km/s}$) differs from ground speed ($\sim 7.2\text{ km/s}$), and explain how antimeridian line splitting works.
+- **Objective:** Explore the ISS's calculated position, interactive Leaflet map, and forward ground tracks.
+- **Key Concepts:** Understand sub-satellite geodetic latitude, longitude, height above the WGS-84 ellipsoid, and inertial speed ($\approx 7.66\text{ km/s}$) versus relative ground speed ($\sim 7.2\text{ km/s}$); trace the SGP4 propagation pipeline.
+- **Activity:** Adjust the ground track prediction duration slider (60 to 720 minutes), inspect the westward orbital track shift caused by Earth's rotation, explore telemetry curves, and review upcoming topocentric observation flyovers in IST.
 
 ### [Mission 3 — Mission Upgrade: Find the Flaws. Build What's Next.](missions/mission-3.md) (10 min)
-- **Goal:** Think like aerospace software engineers: audit the application, discover a limitation or usability opportunity, and formulate an architectural proposal.
-- **Activity:** Use a 6-step engineering review process to investigate coordinate presentation, telemetry units, error states, or pass predictions. Try a beginner coding enhancement (such as adding altitude in miles to `backend/formatting.py`) or plan an advanced feature.
-- **Deliverable:** Present a structured upgrade proposal covering discovery, user impact, affected files, and planned technical approach.
+- **Objective:** Audit the application like aerospace software engineers, explore controls and diagnostics, and identify limitations or feature opportunities.
+- **Key Concepts:** Understand the physical and mathematical limitations of TLE predictions (atmospheric drag decay, unmodeled orbital reboost maneuvers, age degradation); evaluate dashboard usability and edge cases.
+- **Activity:** Test sidebar controls (minimum elevation, search window, auto-refresh rate, timezone choice); use the **🛰️ Cross-Check Position Accuracy** diagnostic to verify calculations; formulate an architectural upgrade proposal or beginner coding enhancement.
 
 ---
 
@@ -223,22 +233,31 @@ The 10-minute workshop challenge is designed as an entry point for continued ind
 
 ## Testing & Quality Assurance
 
-OrbitX maintains a comprehensive Pytest suite (168 tests) with 100% pass rate:
+OrbitX maintains a comprehensive Pytest suite (166 tests) with a 100% pass rate:
 
 ```bash
-# Run all tests
-python -m pytest -v
+# Run the complete test suite
+python -m pytest -q
 
-# Run only orbital calculation tests
+# Run orbital calculation and baseline tests
 python -m pytest tests/test_baseline.py -v
 
-# Run mission specification and curriculum tests
+# Run accuracy validation and IST timezone tests
+python -m pytest tests/test_accuracy_and_ist.py -v
+
+# Run workshop mission specification tests
 python -m pytest tests/test_missions.py -v
 ```
 
-### Verified Audit Benchmarks:
-- **Independent SGP4 Verification:** Sub-satellite positions match external authoritative REST API tracking within `0.00000°` latitude difference, `0.00038°` longitude difference (~38 meters), and `0.002 km` altitude difference.
-- **Static Compilation:** `python -m compileall -q backend frontend` passes with zero syntax or typing errors.
+### Scientific Verification & Benchmarks:
+
+- **SGP4 Implementation Consistency Check (WhereTheISS.at):**
+  When evaluated at the exact same integer UTC second, OrbitX's local SGP4 propagation matches the external WhereTheISS.at API within **$0.0000^\circ$ latitude**, **$0.0004^\circ$ longitude** (~40 meters horizontal separation), and **$< 0.01\text{ km}$ altitude**. Because both services evaluate NORAD catalog ID 25544 via SGP4 on public TLEs, this confirms the mathematical and coordinate conversion fidelity of OrbitX's internal engine, rather than serving as independent empirical proof of physical spacecraft location.
+
+- **Authoritative Trajectory Ephemeris Comparison (NASA JSC TOPO):**
+  Compared against NASA Johnson Space Center's official trajectory ephemeris (`ISS.OEM_J2K_EPH.txt`), OrbitX's SGP4 propagation demonstrates horizontal ground track agreement within **$\approx 0.24\text{ km}$ (240 meters)**. The radial altitude difference is **$\approx 6.71\text{ km}$**, illustrating the fundamental physical difference between SGP4's analytical mean-element model and NASA's high-order numerical orbit integration (accounting for upper-atmospheric density variations, micro-thrust maneuvers, and high-degree gravitational harmonics).
+
+- **Static Compilation:** `python -m compileall backend frontend tests` compiles cleanly with zero syntax or import errors.
 - **Dependency Health:** `pip check` reports zero broken requirements or package conflicts.
 
 ---
