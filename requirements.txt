@@ -9,3 +9,4 @@ folium>=0.15
 streamlit>=1.50
 streamlit-folium>=0.20
 requests>=2.31
+tzdata>=2024.1

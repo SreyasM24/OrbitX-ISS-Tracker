@@ -6,7 +6,12 @@ position) is passed in, and nothing here does orbital maths.
 
 from __future__ import annotations
 
+import importlib
 import streamlit as st
+
+import backend.formatting as formatting
+if not hasattr(formatting, "format_ist"):
+    importlib.reload(formatting)
 
 from backend.formatting import (
     format_age,
