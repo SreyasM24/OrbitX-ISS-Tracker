@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import folium
 
-from backend.formatting import format_latitude, format_longitude, format_utc
+from backend.formatting import format_ist, format_latitude, format_longitude, format_utc
 from backend.models import Observer, SatellitePosition
 
 TRACK_COLOR = "#38bdf8"
@@ -36,7 +36,7 @@ def build_map(
 
     label = "ISS (illustrative position)" if illustrative else "ISS"
     popup = (
-        f"<b>{label}</b><br>{format_utc(position.time_utc)}<br>"
+        f"<b>{label}</b><br>{format_ist(position.time_utc)}<br>"
         f"{format_latitude(position.latitude_deg)}, {format_longitude(position.longitude_deg)}<br>"
         f"Altitude {position.altitude_km:.0f} km"
     )

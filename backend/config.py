@@ -86,7 +86,18 @@ MIN_PASS_SEARCH_HOURS = 1
 MAX_MIN_ELEVATION_DEG = 89.0
 
 # Display only: the workshop is in India. All calculations use UTC.
-IST = timezone(timedelta(hours=5, minutes=30), name="IST")
+try:
+    from zoneinfo import ZoneInfo
+
+    class _ISTZone(ZoneInfo):
+        def utcoffset(self, dt=None):
+            if dt is None:
+                return timedelta(hours=5, minutes=30)
+            return super().utcoffset(dt)
+
+    IST = _ISTZone("Asia/Kolkata")
+except Exception:
+    IST = timezone(timedelta(hours=5, minutes=30), name="IST")
 
 DEFAULT_MIN_ELEVATION_DEG = 10.0
 DEFAULT_TRACK_MINUTES = 180  # roughly two orbits (the ISS period is about 92 minutes)

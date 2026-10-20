@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 from streamlit_folium import st_folium
 
 from backend import config
 from frontend.charts import telemetry_figure, track_figure
-from backend.formatting import format_duration
+from backend.formatting import format_duration, format_ist
 from frontend.map_view import build_map
 from backend.missions import MISSIONS
 from backend.orbital_engine import PredictionError, split_track_segments
@@ -39,13 +40,21 @@ def render_map_tab(position, track, observer, controls, illustrative: bool) -> N
 def render_charts_tab(track, illustrative: bool = False, source_label: str = "") -> None:
     st.plotly_chart(telemetry_figure(track), width="stretch")
     st.caption(
-        "Predicted from the orbital elements, starting now. Longitude wraps at ±180°, so the "
-        "line is broken there rather than drawn across the whole plot."
+        "Predicted from the orbital elements, starting now (times displayed in Indian Standard Time, IST = UTC+05:30). "
+        "Longitude wraps at ±180°, so the line is broken there rather than drawn across the whole plot."
     )
     with st.expander("Show the numbers"):
-        st.dataframe(track, hide_index=True, width="stretch")
+        display_df = track.copy()
+        if "time_utc" in display_df.columns:
+            utc_series = pd.to_datetime(display_df["time_utc"], utc=True)
+            display_df.insert(
+                1,
+                "time_ist",
+                utc_series.dt.tz_convert(config.IST).dt.strftime("%d %b %Y, %I:%M:%S %p IST"),
+            )
+        st.dataframe(display_df, hide_index=True, width="stretch")
         csv_filename = "orbitx_track_illustrative.csv" if illustrative else "orbitx_track.csv"
-        export_df = track.copy()
+        export_df = display_df.copy()
         export_df["data_source"] = source_label or ("SAMPLE (illustrative)" if illustrative else "LIVE")
         st.download_button("⬇ Download CSV", export_df.to_csv(index=False), csv_filename,
                            "text/csv")
@@ -83,12 +92,12 @@ def render_passes_tab(tle, observer, start, controls) -> None:
     first = next((p for p in passes if p.is_complete), None)
     if first is not None:
         m1, m2, m3 = st.columns(3)
-        m1.metric("Next full pass (UTC)", first.rise_time_utc.strftime("%d %b %H:%M"))
+        ist_rise = first.rise_time_utc.astimezone(config.IST)
+        m1.metric("Next full pass (IST)", ist_rise.strftime("%d %b, %I:%M %p"))
         m2.metric("Peak elevation", f"{first.max_elevation_deg:.0f}°")
         m3.metric("Duration", format_duration(first.duration_s))
         st.caption(
-            "IST = UTC + 05:30: "
-            + first.rise_time_utc.astimezone(config.IST).strftime("%d %b %H:%M IST")
+            f"Pass start: {format_ist(first.rise_time_utc)} ({first.rise_time_utc.strftime('%H:%M:%S UTC')})"
         )
     st.dataframe(passes_to_frame(passes, controls.zones), hide_index=True, width="stretch")
     if any(not p.is_complete for p in passes):

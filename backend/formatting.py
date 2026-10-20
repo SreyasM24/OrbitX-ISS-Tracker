@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+
+try:
+    from zoneinfo import ZoneInfo
+    IST = ZoneInfo("Asia/Kolkata")
+except Exception:
+    IST = timezone(timedelta(hours=5, minutes=30), name="IST")
 
 
 def format_latitude(value_deg: float) -> str:
@@ -20,6 +26,21 @@ def format_utc(moment: datetime | None) -> str:
     if moment is None:
         return "–"
     return moment.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+
+
+def format_ist(moment: datetime | None, include_offset: bool = False) -> str:
+    """``20 Oct 2026, 02:20:32 PM IST`` (or with offset ``(UTC+05:30)``)."""
+    if moment is None:
+        return "–"
+    if not isinstance(moment, datetime):
+        return str(moment)
+    if moment.tzinfo is None or moment.utcoffset() is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    ist_moment = moment.astimezone(IST)
+    formatted = ist_moment.strftime("%d %b %Y, %I:%M:%S %p IST")
+    if include_offset:
+        formatted += " (UTC+05:30)"
+    return formatted
 
 
 def format_duration(seconds: float | None) -> str:

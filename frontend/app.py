@@ -17,13 +17,6 @@ from pathlib import Path
 # root on the import path so that ``backend`` and ``frontend`` can be imported.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# In long-running Streamlit Cloud container environments, clear any stale backend
-# and frontend module caches so git updates take effect cleanly upon script re-run.
-import os  # noqa: E402
-if not os.environ.get("PYTEST_CURRENT_TEST") and "pytest" not in sys.modules:
-    for _mod in list(sys.modules):
-        if _mod in ("backend", "frontend") or _mod.startswith(("backend.", "frontend.")):
-            sys.modules.pop(_mod, None)
 
 import streamlit as st  # noqa: E402
 
@@ -79,6 +72,7 @@ def render_live_dashboard() -> None:
     try:
         satellite = build_satellite(tle)
         position = compute_position(satellite, current_time)
+        st.session_state["last_position"] = position
         track = cached_track(tle.name, tle.line1, tle.line2, start,
                              controls.track_minutes, controls.step_s)
     except (PredictionError, ValidationError) as exc:

@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
+from backend import config
 from backend.models import Observer, SatellitePosition
 from backend.orbital_engine import insert_antimeridian_gaps, split_track_segments
 
@@ -32,18 +33,20 @@ def telemetry_figure(track: pd.DataFrame) -> go.Figure:
         rows=3, cols=1, shared_xaxes=True, vertical_spacing=0.06,
         subplot_titles=[label for _, label, _ in specs],
     )
+    time_series = pd.to_datetime(plotted["time_utc"], utc=True)
+    times_ist = time_series.dt.tz_convert(config.IST)
     for row, (column, label, axis_range) in enumerate(specs, start=1):
         fig.add_trace(
             go.Scatter(
-                x=plotted["time_utc"], y=plotted[column], mode="lines",
+                x=times_ist, y=plotted[column], mode="lines",
                 line={"color": CYAN, "width": 2}, connectgaps=False,
                 name=label, showlegend=False,
-                hovertemplate="%{x|%Y-%m-%d %H:%M:%S} UTC<br>" + label + ": %{y:.2f}<extra></extra>",
+                hovertemplate="%{x|%d %b %Y, %I:%M:%S %p} IST<br>" + label + ": %{y:.2f}<extra></extra>",
             ),
             row=row, col=1,
         )
         fig.update_yaxes(title_text=label, range=axis_range, row=row, col=1)
-    fig.update_xaxes(title_text="Time (UTC)", row=3, col=1)
+    fig.update_xaxes(title_text="Time (IST)", row=3, col=1)
     fig.update_layout(
         height=620, margin={"l": 60, "r": 20, "t": 40, "b": 50},
         paper_bgcolor=NAVY, plot_bgcolor=PANEL, font={"color": TEXT},

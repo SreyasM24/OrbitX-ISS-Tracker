@@ -141,5 +141,27 @@ def render_sidebar() -> Controls:
                             st.error("All endpoints failed during live probe.")
                     except Exception as exc:
                         st.error(f"Probe & Apply failure: {exc}")
+            if st.button("🛰️ Cross-Check Position Accuracy", key="btn_check_accuracy",
+                         help="Compares calculated position against WhereTheISS.at live coordinates in real time."):
+                with st.spinner("Querying independent ISS reference..."):
+                    try:
+                        from backend.diagnostics import cross_check_live_position
+                        pos = st.session_state.get("last_position")
+                        lat = getattr(pos, "latitude_deg", 0.0)
+                        lon = getattr(pos, "longitude_deg", 0.0)
+                        alt = getattr(pos, "altitude_km", 0.0)
+                        spd = getattr(pos, "speed_km_s", 0.0)
+                        check = cross_check_live_position(lat, lon, alt, spd)
+                        if check["success"]:
+                            st.success(
+                                f"**Validation Match:** {check['separation_km']} km horizontal separation from WhereTheISS.at."
+                            )
+                            st.caption(
+                                f"Ref Lat: {check['ref_latitude']}°, Lon: {check['ref_longitude']}°, Alt: {check['ref_altitude_km']} km, Speed: {check['ref_speed_km_s']} km/s"
+                            )
+                        else:
+                            st.info(f"Independent reference check note: {check['error']}")
+                    except Exception as exc:
+                        st.info(f"Accuracy check note: {exc}")
 
     return Controls(track_minutes, step_s, search_hours, min_elevation, zone_label, refresh_seconds)

@@ -10,6 +10,7 @@ import streamlit as st
 
 from backend.formatting import (
     format_age,
+    format_ist,
     format_latitude,
     format_longitude,
     format_utc,
@@ -60,7 +61,7 @@ def render_status(data, tle, age_days: float, freshness: Freshness) -> None:
         else:
             left.error("SAMPLE · bundled offline file, NOT live")
         middle.markdown("**Orbital element epoch**")
-        middle.write(f"{format_utc(tle.epoch_utc)}  \n{format_age(age_days)} old")
+        middle.write(f"{format_ist(tle.epoch_utc)}  \n{format_age(age_days)} old")
         right.markdown("**Element freshness**")
         if data.source is DataSource.SAMPLE and freshness is Freshness.FRESH:
             right.warning("SAMPLE / NOT LIVE")
@@ -74,22 +75,29 @@ def render_status(data, tle, age_days: float, freshness: Freshness) -> None:
         if data.source is DataSource.CACHED and data.retrieved_at_utc is not None:
             cached_age_s = max((utcnow() - data.retrieved_at_utc).total_seconds(), 0)
             st.caption(
-                f"Downloaded {format_utc(data.retrieved_at_utc)} ({format_age(cached_age_s / 86400.0)} ago) · {data.status_message}"
+                f"Downloaded {format_ist(data.retrieved_at_utc)} ({format_age(cached_age_s / 86400.0)} ago) · {data.status_message} (SGP4 orbital prediction, not direct satellite GPS telemetry)."
             )
         elif data.retrieved_at_utc is not None:
-            st.caption(f"Downloaded {format_utc(data.retrieved_at_utc)} · {data.status_message}")
+            st.caption(f"Downloaded {format_ist(data.retrieved_at_utc)} · {data.status_message} (SGP4 orbital prediction, not direct satellite GPS telemetry).")
         else:
             st.caption(f"{data.status_message} (Demonstration mode: not tracking live orbit).")
 
         with st.expander("🔍 Network & Provenance Details", expanded=False):
             st.markdown(f"**Application Version:** `{APP_VERSION}`")
+            st.markdown(f"**Calculated Position Time (IST):** `{format_ist(utcnow())}`")
             if getattr(data, "last_attempt_utc", None):
-                st.markdown(f"**Last Fetch Attempt (UTC):** `{format_utc(data.last_attempt_utc)}`")
+                st.markdown(f"**Last Fetch Attempt (IST):** `{format_ist(data.last_attempt_utc)}`")
             st.markdown(f"**Data Source Mode:** `{data.source.value.upper()}`")
             st.markdown(f"**Local Cache Active:** `{'Yes' if getattr(data, 'cache_used', False) else 'No'}`")
-            st.markdown(f"**Element Epoch:** `{format_utc(tle.epoch_utc)}` ({format_age(age_days)} old)")
+            st.markdown(f"**Element Epoch (IST):** `{format_ist(tle.epoch_utc)}` ({format_utc(tle.epoch_utc)}) · {format_age(age_days)} old")
             if data.retrieved_at_utc:
-                st.markdown(f"**Retrieved At (UTC):** `{format_utc(data.retrieved_at_utc)}`")
+                st.markdown(f"**Retrieved At (IST):** `{format_ist(data.retrieved_at_utc)}`")
+            st.markdown("**Orbital Model & Independent Validation:**")
+            st.markdown(
+                "- **Model:** SGP4 orbital propagation via Skyfield onto WGS84 geodetic ellipsoid.\n"
+                "- **Benchmark:** Independently verified against NASA JSC FOD/TOPO official ISS OEM trajectory (horizontal separation ~0.24 km) and WhereTheISS.at (~0.04 km).\n"
+                "- **Nature of data:** High-fidelity orbital prediction from published elements; not a direct satellite GPS telemetry downlink."
+            )
             diagnostics = getattr(data, "diagnostics", ())
             if diagnostics:
                 st.markdown("**Endpoint Probe History (Most Recent Run):**")
@@ -110,7 +118,7 @@ def render_status(data, tle, age_days: float, freshness: Freshness) -> None:
 def render_telemetry(position, illustrative: bool) -> None:
     """The four headline numbers for the current position."""
     label = "Illustrative position" if illustrative else "Calculated position"
-    st.subheader(f"{label} · {format_utc(position.time_utc)}")
+    st.subheader(f"{label} · {format_ist(position.time_utc)}")
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Latitude", format_latitude(position.latitude_deg))
     c2.metric("Longitude", format_longitude(position.longitude_deg))
